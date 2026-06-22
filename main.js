@@ -1,303 +1,1011 @@
-// Joshway Speed - Gorgeous Sonic-like side scroller
-// Beautiful world exploration, collect star rings, Joshway cape hero
+// Joshway Speed - Full Production Sonic-like Side Scroller
+// Gorgeous worlds, star rings, loops, power-ups, bosses, polish
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { alpha: true });
+const gameContainer = document.getElementById('gameContainer');
+const powerHud = document.getElementById('powerHud');
 
+let gameState = 'title'; // title, playing, complete, over
 let rings = 0;
 let score = 0;
 let time = 0;
-let gameOver = false;
+let currentLevel = 0;
+let worldWidth = 2600;
+let cameraX = 0;
 
 const player = {
-  x: 100,
-  y: 300,
-  vx: 4,
+  x: 120,
+  y: 280,
+  vx: 0,
   vy: 0,
-  width: 32,
-  height: 48,
+  width: 34,
+  height: 44,
   onGround: false,
-  spin: false
+  spin: false,
+  facing: 1,
+  frame: 0,
+  animTimer: 0
 };
 
 let keys = {};
-let currentLevel = 0;
-const levels = [
-  { name: "Green Hills", bg: '/assets/sidescroller-bg.jpg', layer: '/assets/sidescroller-layer2.jpg', ringColor: '#facc15' },
-  { name: "Cosmic Plains", bg: '/assets/sidescroller-bg.jpg', layer: '/assets/sidescroller-layer2.jpg', ringColor: '#3b82f6' }
-];
-
-let platforms = [
-  { x: 0, y: 380, w: 800, h: 70 },
-  { x: 200, y: 300, w: 150, h: 20 },
-  { x: 450, y: 250, w: 120, h: 20 },
-  { x: 650, y: 320, w: 100, h: 20 }
-];
-
+let platforms = [];
 let collectibles = [];
-let particles = [];
+let powerUps = [];
 let enemies = [];
+let loops = [];
+let particles = [];
+let boss = null;
+let goalX = 2400;
 
-let bgX = 0;
-let layerX = 0;
+let collectedThisLevel = 0;
+let secretsFound = 0;
+let powerupType = null;
+let powerupTimer = 0;
 
-// Audio
+const levelData = [
+  {
+    name: "GREEN HILLS",
+    bg: '/assets/green-hills-bg.jpg',
+    layer: '/assets/sidescroller-layer2.jpg',
+    ringColor: '#facc15',
+    worldWidth: 2400,
+    goalX: 2250,
+    platforms: [
+      {x:0,y:380,w:520,h:70}, {x:580,y:380,w:420,h:70}, {x:1050,y:380,w:600,h:70},
+      {x:1700,y:380,w:700,h:70},
+      {x:280,y:280,w:110,h:18}, {x:440,y:210,w:90,h:18},
+      {x:780,y:260,w:130,h:18}, {x:980,y:170,w:80,h:18},
+      {x:1250,y:310,w:150,h:18}, {x:1480,y:230,w:95,h:18},
+      {x:1750,y:290,w:140,h:18}, {x:2000,y:180,w:110,h:18}
+    ],
+    rings: [[160,240],[230,170],[320,290],[410,140],[510,250],[640,200],[820,100],[920,280],[1080,220],[1220,140],[1380,290],[1560,180],[1720,240],[1880,110],[2050,280]],
+    secrets: [[420,80],[1150,60],[1920,70]],
+    enemies: [{x:380,y:355,vx:1.8},{x:720,y:355,vx:-1.6},{x:1220,y:355,vx:1.4},{x:1700,y:355,vx:1.7},{x:1980,y:355,vx:-1.5}],
+    powerups: [{x:740,y:220,type:'speed'},{x:1520,y:170,type:'flight'}],
+    loops: [{x:1550,y:310,r:58}],
+    hasBoss: false
+  },
+  {
+    name: "DESERT DUNES",
+    bg: '/assets/desert-bg.jpg',
+    layer: '/assets/desert-layer.png',
+    ringColor: '#fb923c',
+    worldWidth: 2700,
+    goalX: 2550,
+    platforms: [
+      {x:0,y:390,w:380,h:60}, {x:440,y:390,w:460,h:60}, {x:960,y:390,w:380,h:60},
+      {x:1410,y:390,w:520,h:60}, {x:2000,y:390,w:700,h:60},
+      {x:210,y:300,w:95,h:16}, {x:370,y:235,w:115,h:16},
+      {x:680,y:275,w:80,h:16}, {x:850,y:175,w:95,h:16},
+      {x:1100,y:310,w:130,h:16}, {x:1330,y:205,w:85,h:16},
+      {x:1620,y:295,w:125,h:16}, {x:1860,y:160,w:100,h:16}, {x:2100,y:260,w:90,h:16}
+    ],
+    rings: [[130,260],[220,175],[310,320],[450,145],[580,235],[710,175],[850,95],[970,300],[1120,185],[1270,265],[1450,125],[1600,215],[1780,305],[1950,145],[2150,235],[2300,180]],
+    secrets: [[560,95],[1420,105],[2110,85]],
+    enemies: [{x:290,y:368,vx:2.1},{x:580,y:368,vx:-1.9},{x:1020,y:368,vx:1.6},{x:1530,y:368,vx:-1.8},{x:2040,y:368,vx:2.0}],
+    powerups: [{x:620,y:240,type:'speed'},{x:1750,y:195,type:'flight'}],
+    loops: [{x:950,y:320,r:52},{x:1720,y:290,r:48}],
+    hasBoss: false
+  },
+  {
+    name: "AQUA RUINS",
+    bg: '/assets/water-bg.jpg',
+    layer: '/assets/water-layer.png',
+    ringColor: '#67e8f9',
+    worldWidth: 2800,
+    goalX: 2650,
+    platforms: [
+      {x:0,y:385,w:350,h:65}, {x:410,y:385,w:380,h:65}, {x:850,y:385,w:480,h:65},
+      {x:1400,y:385,w:440,h:65}, {x:1930,y:385,w:870,h:65},
+      {x:180,y:295,w:105,h:15}, {x:360,y:205,w:80,h:15},
+      {x:600,y:285,w:120,h:15}, {x:810,y:150,w:90,h:15},
+      {x:1050,y:260,w:145,h:15}, {x:1270,y:175,w:100,h:15},
+      {x:1530,y:305,w:115,h:15}, {x:1750,y:200,w:80,h:15}, {x:1980,y:275,w:130,h:15}, {x:2200,y:155,w:90,h:15}
+    ],
+    rings: [[140,235],[205,145],[295,310],[380,105],[520,205],[650,265],[780,125],[910,275],[1060,165],[1190,300],[1350,195],[1520,115],[1670,285],[1840,170],[2000,250],[2180,135],[2340,295]],
+    secrets: [[290,70],[1040,90],[1990,65]],
+    enemies: [{x:340,y:363,vx:1.5},{x:620,y:363,vx:-2.2},{x:990,y:363,vx:1.3},{x:1380,y:363,vx:-1.8},{x:1890,y:363,vx:2.3},{x:2270,y:363,vx:-1.6}],
+    powerups: [{x:580,y:180,type:'flight'},{x:1680,y:235,type:'speed'}],
+    loops: [{x:1120,y:300,r:55}],
+    hasBoss: false
+  },
+  {
+    name: "COSMIC REALM",
+    bg: '/assets/cosmic-bg.jpg',
+    layer: '/assets/cosmic-layer.png',
+    ringColor: '#c084fc',
+    worldWidth: 3100,
+    goalX: 2850,
+    platforms: [
+      {x:0,y:395,w:280,h:55}, {x:340,y:395,w:340,h:55}, {x:740,y:395,w:410,h:55},
+      {x:1220,y:395,w:510,h:55}, {x:1800,y:395,w:400,h:55}, {x:2280,y:395,w:820,h:55},
+      {x:160,y:305,w:100,h:14}, {x:310,y:210,w:85,h:14},
+      {x:510,y:275,w:115,h:14}, {x:710,y:155,w:80,h:14},
+      {x:980,y:265,w:140,h:14}, {x:1190,y:180,w:95,h:14},
+      {x:1460,y:300,w:120,h:14}, {x:1650,y:125,w:85,h:14},
+      {x:1920,y:255,w:125,h:14}, {x:2160,y:195,w:100,h:14}, {x:2410,y:285,w:95,h:14}
+    ],
+    rings: [[120,225],[185,120],[280,305],[390,155],[500,225],[610,290],[750,95],[880,255],[1020,165],[1170,295],[1310,135],[1480,245],[1620,85],[1770,310],[1930,175],[2100,255],[2260,130],[2440,290],[2600,200]],
+    secrets: [[470,60],[1290,55],[2200,75]],
+    enemies: [{x:260,y:374,vx:2.3},{x:490,y:374,vx:-2.0},{x:860,y:374,vx:1.7},{x:1140,y:374,vx:-2.5},{x:1510,y:374,vx:1.9},{x:2030,y:374,vx:-1.8},{x:2440,y:374,vx:2.1}],
+    powerups: [{x:660,y:145,type:'speed'},{x:1580,y:105,type:'flight'},{x:2350,y:220,type:'speed'}],
+    loops: [{x:860,y:310,r:60},{x:1600,y:260,r:50}],
+    hasBoss: true
+  }
+];
+
+let images = {};
+function loadImages() {
+  const toLoad = {
+    bgGreen: '/assets/green-hills-bg.jpg',
+    bgDesert: '/assets/desert-bg.jpg',
+    bgWater: '/assets/water-bg.jpg',
+    bgCosmic: '/assets/cosmic-bg.jpg',
+    layerGreen: '/assets/sidescroller-layer2.jpg',
+    layerDesert: '/assets/desert-layer.png',
+    layerWater: '/assets/water-layer.png',
+    layerCosmic: '/assets/cosmic-layer.png',
+    starRing: '/assets/star-ring.png',
+    secretRing: '/assets/secret-ring.png',
+    playerSheet: '/assets/joshway-spritesheet.png',
+    playerOld: '/assets/joshway-running.png',
+    enemy: '/assets/enemy-sheet.png',
+    bossImg: '/assets/boss-sprite.png',
+    powerImg: '/assets/powerups.png',
+    ui: '/assets/ui-elements.png'
+  };
+  Object.keys(toLoad).forEach(k => {
+    const img = new Image();
+    img.src = toLoad[k];
+    images[k] = img;
+  });
+}
+
 let audioCtx;
-function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function initAudio() {
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+}
 
-function playSFX(f, d, t = 'square', v = 0.2) {
+function playSFX(freq, dur, type='square', vol=0.25, ramp=0.08) {
   if (!audioCtx) return;
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
-  o.type = t; o.frequency.value = f;
-  g.gain.value = v;
-  o.connect(g); g.connect(audioCtx.destination);
+  const f = audioCtx.createBiquadFilter();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.value = vol;
+  f.type = 'lowpass';
+  f.frequency.value = 1800;
+  o.connect(f); f.connect(g); g.connect(audioCtx.destination);
   o.start();
-  setTimeout(() => { g.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); o.stop(audioCtx.currentTime + 0.15); }, d * 1000);
+  g.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  setTimeout(() => { try { o.stop(); } catch(e){} }, dur * 1000 + 40);
 }
 
-let musicTimer;
-function startSpeedMusic() {
-  if (!audioCtx) return;
+let musicTimer = null;
+let musicNote = 0;
+function startMusicForLevel(lvl) {
   if (musicTimer) clearTimeout(musicTimer);
-  function loop() {
-    if (gameOver) return;
-    const notes = [523, 659, 784, 880, 784, 659];
-    notes.forEach((f, i) => setTimeout(() => playSFX(f, 0.12, 'sawtooth', 0.12), i * 150));
-    musicTimer = setTimeout(loop, 1100);
+  if (!audioCtx) return;
+  function tick() {
+    if (gameState !== 'playing') return;
+    const themes = [
+      [659, 784, 880, 988, 880, 784, 659], // green happy
+      [523, 587, 659, 698, 659, 523],     // desert
+      [784, 880, 988, 1046, 880, 784],    // water
+      [440, 523, 659, 880, 1046, 880, 659] // cosmic
+    ];
+    const notes = themes[lvl % 4];
+    const f = notes[musicNote % notes.length];
+    playSFX(f, 0.09, 'sawtooth', 0.08);
+    musicNote++;
+    musicTimer = setTimeout(tick, 115);
   }
-  loop();
+  tick();
 }
 
-function resetLevel() {
-  player.x = 80;
-  player.y = 280;
-  player.vx = 4;
+function stopMusic() {
+  if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
+}
+
+function createParticle(x, y, vx, vy, life, color, size=4) {
+  particles.push({x, y, vx, vy, life, color, size});
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.18;
+    p.life -= 1;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function spawnRingBurst(x, y, n=7, col='#facc15') {
+  for (let i = 0; i < n; i++) {
+    createParticle(x, y, (Math.random()-0.5)*5.5, (Math.random()-0.6)*4.5-2.5, 22 + Math.random()*12, col, 5);
+  }
+}
+
+function resetLevel(lvlIdx) {
+  currentLevel = lvlIdx;
+  const L = levelData[lvlIdx];
+  worldWidth = L.worldWidth;
+  goalX = L.goalX;
+
+  player.x = 110;
+  player.y = 260;
+  player.vx = 3.5;
   player.vy = 0;
   player.onGround = false;
   player.spin = false;
-  rings = 0;
-  score = 0;
-  time = 0;
-  collectibles = [];
-  particles = [];
-  enemies = [];
-  bgX = 0;
-  layerX = 0;
+  player.facing = 1;
+  player.frame = 0;
+  player.animTimer = 0;
 
-  // Spawn rings
-  for (let i = 0; i < 8; i++) {
-    collectibles.push({ x: 150 + i * 80, y: 200 + Math.sin(i) * 80, r: 12, collected: false });
-  }
+  rings = 0;
+  if (currentLevel === 0 || gameState !== 'playing') score = 0;
+  time = 0;
+  collectedThisLevel = 0;
+  secretsFound = 0;
+  powerupType = null;
+  powerupTimer = 0;
+
+  platforms = JSON.parse(JSON.stringify(L.platforms));
+  collectibles = [];
+  powerUps = [];
+  enemies = [];
+  loops = JSON.parse(JSON.stringify(L.loops || []));
+  particles = [];
+  boss = null;
+
+  // Spawn normal rings
+  L.rings.forEach(([rx, ry]) => collectibles.push({x: rx, y: ry, r: 13, collected: false, isSecret: false}));
+
+  // Secrets
+  L.secrets.forEach(([rx, ry]) => collectibles.push({x: rx, y: ry, r: 14, collected: false, isSecret: true}));
+
+  // Powerups
+  L.powerups.forEach(p => powerUps.push({x: p.x, y: p.y, type: p.type, collected: false}));
 
   // Enemies
-  for (let i = 0; i < 3; i++) {
-    enemies.push({ x: 300 + i * 150, y: 340, w: 24, h: 24, vx: 1.5 });
+  L.enemies.forEach(e => enemies.push({x: e.x, y: e.y, w: 26, h: 26, vx: e.vx, alive: true}));
+
+  // Boss on cosmic
+  if (L.hasBoss) {
+    boss = { x: goalX - 280, y: 210, w: 84, h: 70, vx: 1.2, hp: 4, phase: 0, timer: 0, alive: true };
   }
+
+  cameraX = 0;
 
   document.getElementById('rings').textContent = '000';
-  document.getElementById('score').textContent = '000000';
+  document.getElementById('score').textContent = String(score).padStart(6, '0');
+  document.getElementById('time').textContent = '00';
+  document.getElementById('levelName').textContent = L.name;
+
+  powerHud.style.display = 'none';
+
+  // initial particles sparkle
+  for (let i = 0; i < 18; i++) createParticle(player.x + 20, player.y + 20, Math.random()*1.5-1, -1.5-Math.random()*2, 26, '#facc15');
 }
 
-function update() {
-  if (gameOver) return;
+function handleInput() {
+  const accel = player.onGround ? 0.55 : 0.36;
+  const maxRun = powerupType === 'speed' ? 15.5 : 12.5;
 
-  time += 1 / 60;
-
-  // Input
-  if ((keys['ArrowLeft'] || keys['KeyA']) && player.vx > -6) player.vx -= 0.4;
-  if ((keys['ArrowRight'] || keys['KeyD']) && player.vx < 6) player.vx += 0.4;
-
-  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround) {
-    player.vy = -14;
-    player.onGround = false;
-    playSFX(700, 0.1, 'sine', 0.3);
+  if ((keys['ArrowLeft'] || keys['KeyA']) && player.vx > -maxRun) {
+    player.vx -= accel;
+    player.facing = -1;
+  }
+  if ((keys['ArrowRight'] || keys['KeyD']) && player.vx < maxRun) {
+    player.vx += accel;
+    player.facing = 1;
   }
 
+  // Jump
+  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround) {
+    let jump = -14.2;
+    if (player.vx > 7) jump = -14.8; // speed jump bonus
+    player.vy = jump;
+    player.onGround = false;
+    playSFX(760, 0.095, 'sine', 0.35);
+    for (let i=0; i<4; i++) createParticle(player.x + 16, player.y + player.height, (Math.random()-0.5)*1.5, 1.8, 9, '#ddd');
+  }
+
+  // Spin / spin-dash charge
   if (keys['ArrowDown'] || keys['KeyS']) {
     player.spin = true;
+    if (player.onGround && Math.abs(player.vx) > 1.5) {
+      player.vx *= 0.985;
+    }
+    // Spin dash charge: hold down + press space or jump to launch
+    if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround && Math.abs(player.vx) < 5) {
+      player.vx = player.facing * 11.5;
+      player.vy = -2;
+      player.onGround = false;
+      playSFX(520, 0.08, 'square', 0.4);
+      for (let i=0; i<6; i++) createParticle(player.x+16, player.y+38, player.facing*(0.5+Math.random()*3), -0.6, 11, '#facc15');
+    }
   } else {
     player.spin = false;
   }
 
-  // Physics
-  player.vy += 0.6; // gravity
+  // Emergency brake / quick turn
+  if ((keys['ArrowLeft'] || keys['KeyA']) && player.vx > 0.5) player.vx *= 0.86;
+  if ((keys['ArrowRight'] || keys['KeyD']) && player.vx < -0.5) player.vx *= 0.86;
+}
+
+function updatePhysics() {
+  const L = levelData[currentLevel];
+  const grav = (powerupType === 'flight') ? 0.12 : 0.68;
+  const friction = player.onGround ? 0.90 : 0.975;
+
+  // gravity + flight assist
+  player.vy += grav;
+  if (powerupType === 'flight' && (keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
+    player.vy = Math.max(player.vy, -6.5);
+    if (Math.random() < 0.4) createParticle(player.x + 18, player.y + 36, (Math.random()-0.5)*1, 1.6, 8, '#bae6fd');
+  }
+
   player.x += player.vx;
   player.y += player.vy;
 
-  // Friction
-  player.vx *= 0.96;
+  player.vx *= friction;
+  if (Math.abs(player.vx) < 0.06) player.vx = 0;
 
-  // Ground/platforms
+  // Clamp
+  if (player.vx > 15.5) player.vx = 15.5;
+  if (player.vx < -12) player.vx = -12;
+}
+
+function handleCollisions() {
+  const L = levelData[currentLevel];
   player.onGround = false;
-  platforms.forEach(p => {
-    if (player.x + player.width > p.x && player.x < p.x + p.w &&
-        player.y + player.height > p.y && player.y + player.height - 10 < p.y + p.h && player.vy >= 0) {
-      player.y = p.y - player.height;
-      player.vy = 0;
-      player.onGround = true;
+
+  // Platform collisions (improved)
+  for (let p of platforms) {
+    const px = p.x, py = p.y, pw = p.w, ph = p.h;
+    if (player.x + player.width > px && player.x < px + pw &&
+        player.y + player.height > py && player.y < py + ph) {
+
+      // top landing
+      if (player.vy >= 0 && (player.y + player.height - player.vy) <= py + 6) {
+        player.y = py - player.height;
+        player.vy = 0;
+        player.onGround = true;
+        if (player.spin && Math.abs(player.vx) > 3) {
+          player.vx *= 0.72; // spin friction
+        }
+      }
+      // bottom hit
+      else if (player.vy < 0 && (player.y - player.vy) >= py + ph - 4) {
+        player.y = py + ph;
+        player.vy = 1.5;
+      }
+      // sides
+      else if (player.vx > 0) {
+        player.x = px - player.width;
+        player.vx = Math.min(player.vx * -0.4, -1.2);
+      } else if (player.vx < 0) {
+        player.x = px + pw;
+        player.vx = Math.max(player.vx * -0.4, 1.2);
+      }
+    }
+  }
+
+  // Bounds
+  if (player.x < 8) { player.x = 8; player.vx = Math.max(player.vx, 0.8); }
+  const rightLimit = worldWidth - player.width - 12;
+  if (player.x > rightLimit) {
+    player.x = rightLimit;
+    if (!player.onGround) player.vx *= 0.6;
+  }
+  if (player.y > 440) {
+    // fall damage
+    player.y = 280;
+    player.vy = -7;
+    if (rings > 0) {
+      rings = Math.max(0, rings - 3);
+      spawnRingBurst(player.x + 12, player.y + 10, 5);
+      playSFX(260, 0.3, 'sawtooth', 0.3);
+    } else {
+      triggerDeath();
+    }
+  }
+
+  // Loop de loops - momentum fun!
+  for (let lp of loops) {
+    const dx = (player.x + 17) - lp.x;
+    const dy = (player.y + 22) - lp.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < lp.r + 22 && dist > 12 && Math.abs(player.vx) > 4.2) {
+      const ang = Math.atan2(dy, dx);
+      const targetR = lp.r + (player.spin ? -5 : 7);
+      // snap to circular path
+      player.x = lp.x + Math.cos(ang) * targetR - 17;
+      player.y = lp.y + Math.sin(ang) * targetR - 22;
+      // apply tangential velocity
+      const tangent = player.vx * 0.96 + (player.facing * 0.7);
+      player.vx = Math.cos(ang + Math.PI/2) * tangent * 1.08;
+      player.vy = Math.sin(ang + Math.PI/2) * tangent * 1.08;
+      if (Math.random() < 0.5) createParticle(lp.x, lp.y, 0, 0, 4, '#fef08c', 3);
+      break;
+    }
+  }
+}
+
+function handleCollectibles() {
+  const L = levelData[currentLevel];
+  collectibles.forEach(c => {
+    if (c.collected) return;
+    const dx = player.x + 17 - c.x;
+    const dy = player.y + 22 - c.y;
+    if (Math.hypot(dx, dy) < (c.r + 15)) {
+      c.collected = true;
+      rings++;
+      collectedThisLevel++;
+      const pts = c.isSecret ? 450 : 120;
+      score += pts;
+      if (c.isSecret) secretsFound++;
+      playSFX(c.isSecret ? 1480 : 1220, 0.14, 'sine', c.isSecret ? 0.7 : 0.5);
+      spawnRingBurst(c.x, c.y, c.isSecret ? 11 : 6, c.isSecret ? '#fde047' : L.ringColor);
+      if (rings % 5 === 0) score += 80;
     }
   });
 
-  // Collect rings
+  // Power-ups
+  powerUps.forEach(pu => {
+    if (pu.collected) return;
+    if (Math.hypot(player.x + 17 - pu.x, player.y + 22 - pu.y) < 28) {
+      pu.collected = true;
+      powerupType = pu.type;
+      powerupTimer = (pu.type === 'speed' ? 380 : 340);
+      playSFX(920, 0.22, 'sine', 0.6);
+      spawnRingBurst(pu.x, pu.y, 9, pu.type === 'speed' ? '#f87171' : '#bae6fd');
+      powerHud.style.display = 'block';
+      powerHud.textContent = (pu.type === 'speed' ? '⚡ SPEED BOOST' : '✈️ FLIGHT ACTIVE');
+    }
+  });
+}
+
+function handleEnemiesAndBoss() {
+  const L = levelData[currentLevel];
+  // Regular enemies
+  enemies.forEach(e => {
+    if (!e.alive) return;
+    e.x += e.vx;
+    if (e.x < 40 || e.x > worldWidth - 70) e.vx *= -1;
+
+    const hit = (Math.abs(player.x + 17 - (e.x + 13)) < 27 && Math.abs(player.y + 20 - (e.y + 12)) < 29);
+    if (hit) {
+      if ((player.spin || player.vy > 3) && player.y + 20 < e.y + 6) {
+        // stomp
+        e.alive = false;
+        score += 420;
+        playSFX(420, 0.18, 'square', 0.4);
+        spawnRingBurst(e.x + 13, e.y + 8, 7, '#f87171');
+        player.vy = -9.5;
+      } else {
+        // hurt player
+        if (rings > 0) {
+          const lost = Math.min(3, rings);
+          rings -= lost;
+          spawnRingBurst(player.x + 16, player.y + 18, lost + 1);
+        }
+        player.vx = player.facing * -6;
+        player.vy = -3;
+        playSFX(280, 0.25, 'sawtooth', 0.32);
+      }
+    }
+  });
+
+  // BOSS
+  if (boss && boss.alive) {
+    boss.timer++;
+    boss.x += boss.vx;
+    if (boss.x < goalX - 480 || boss.x > goalX + 40) boss.vx *= -1;
+
+    // attack pattern
+    if (boss.timer % 55 === 0 && Math.abs(boss.x - player.x) < 380) {
+      // simple projectile as particle
+      const dir = boss.x < player.x ? 1 : -1;
+      for (let i=0; i<3; i++) {
+        createParticle(boss.x + 42, boss.y + 42, dir * (5.5 + i*0.6), (Math.random()-0.5)*3 -1, 38, '#c084fc', 6);
+      }
+      playSFX(380, 0.1, 'square', 0.25);
+    }
+    if (boss.phase > 1 && boss.timer % 95 === 0) {
+      boss.vy = -4; // hover bob
+    }
+
+    // Boss collision
+    if (Math.abs(player.x + 17 - (boss.x + 42)) < 48 && Math.abs(player.y + 22 - (boss.y + 35)) < 42) {
+      if (player.spin && player.vy > 0) {
+        boss.hp--;
+        score += 900;
+        player.vy = -10;
+        spawnRingBurst(boss.x + 42, boss.y + 30, 12, '#e0f2fe');
+        playSFX(210, 0.35, 'sawtooth', 0.5);
+        if (boss.hp <= 0) {
+          boss.alive = false;
+          spawnRingBurst(boss.x + 42, boss.y + 35, 28, '#c084fc');
+          score += 4500;
+          playSFX(650, 0.7, 'sine', 0.6);
+        }
+      } else {
+        // hit by boss
+        if (rings > 0) { rings = Math.max(0, rings - 4); spawnRingBurst(player.x+16, player.y+18, 5); }
+        player.vx = -player.facing * 7.5;
+        player.vy = -5;
+        playSFX(190, 0.35, 'sawtooth', 0.4);
+      }
+    }
+  }
+}
+
+function updatePowerups() {
+  if (powerupTimer > 0) {
+    powerupTimer--;
+    if (powerupTimer <= 0) {
+      powerupType = null;
+      powerHud.style.display = 'none';
+      playSFX(440, 0.12, 'sine', 0.3);
+    } else if (powerupTimer % 28 === 0) {
+      if (powerupType === 'speed') {
+        createParticle(player.x + (player.facing > 0 ? -4 : 34), player.y + 38, player.facing * -3.5, 0.4, 7, '#f87171', 3);
+      }
+    }
+  }
+}
+
+function updateCamera() {
+  const target = player.x - 280;
+  cameraX = cameraX * 0.84 + target * 0.16;
+  cameraX = Math.max(0, Math.min(cameraX, worldWidth - 800));
+}
+
+function checkWinCondition() {
+  const L = levelData[currentLevel];
+  const reachedGoal = (player.x + player.width > goalX - 12);
+
+  if (reachedGoal) {
+    let bonus = Math.max(0, Math.floor(4200 - time * 38));
+    if (secretsFound >= 2) bonus += 1200;
+    score += bonus + rings * 130;
+
+    gameState = 'complete';
+    stopMusic();
+
+    // show overlay
+    document.getElementById('completeOverlay').classList.add('active');
+    document.getElementById('completeStats').innerHTML =
+      `RINGS: ${rings} &nbsp;|&nbsp; SECRETS: ${secretsFound} &nbsp;|&nbsp; TIME: ${Math.floor(time)}s &nbsp;|&nbsp; BONUS: ${bonus}`;
+    const msgEl = document.getElementById('completeMsg');
+    if (currentLevel === 3) {
+      msgEl.innerHTML = '★ ALL WORLDS CLEARED! YOU ARE A LEGEND! ★';
+      saveHighScore(score);
+    } else {
+      msgEl.innerHTML = `WORLD CLEARED! Next: ${levelData[currentLevel + 1].name}`;
+    }
+    playSFX(1040, 0.6, 'sine', 0.35);
+  }
+}
+
+function triggerDeath() {
+  stopMusic();
+  gameState = 'over';
+  document.getElementById('gameOverOverlay').classList.add('active');
+  document.getElementById('finalScore').innerHTML = `FINAL SCORE: ${score}<br>RINGS: ${rings}`;
+  saveHighScore(score);
+}
+
+function saveHighScore(newScore) {
+  try {
+    let hs = JSON.parse(localStorage.getItem('joshwayHighScores') || '[]');
+    hs.push({ score: newScore, date: new Date().toISOString().slice(0,10) });
+    hs.sort((a,b) => b.score - a.score);
+    hs = hs.slice(0, 8);
+    localStorage.setItem('joshwayHighScores', JSON.stringify(hs));
+  } catch(e) {}
+}
+
+function update() {
+  if (gameState !== 'playing') return;
+
+  time += 1/60;
+
+  handleInput();
+  updatePhysics();
+  handleCollisions();
+  handleCollectibles();
+  handleEnemiesAndBoss();
+  updatePowerups();
+
+  // enemy collision handled inside handleEnemiesAndBoss
+
+  // Camera
+  updateCamera();
+
+  // Particles
+  updateParticles();
+
+  // Anim update
+  player.animTimer++;
+  if (player.animTimer % (player.onGround && Math.abs(player.vx) > 1.5 ? 3 : 7) === 0) {
+    player.frame = (player.frame + 1) % 4;
+  }
+
+  // HUD
+  const ringEl = document.getElementById('rings');
+  ringEl.textContent = String(rings).padStart(3,'0');
+  document.getElementById('score').textContent = String(Math.floor(score)).padStart(6,'0');
+  document.getElementById('time').textContent = String(Math.floor(time)).padStart(2,'0');
+
+  // Win?
+  checkWinCondition();
+
+  // Speed boost effect particles
+  if (Math.abs(player.vx) > 9 && player.onGround && Math.random() < 0.6) {
+    createParticle(player.x + (player.facing>0 ? 4 : 28), player.y + 38, player.facing * -1.6, 1.3, 6, '#fef08c', 2);
+  }
+}
+
+function draw() {
+  const L = levelData[currentLevel];
+  ctx.save();
+  ctx.translate(-Math.floor(cameraX), 0);
+
+  // Sky / base fill per theme
+  const skyColors = ['#0f2b4a', '#3f2a1f', '#0b2538', '#1a0f36'];
+  ctx.fillStyle = skyColors[currentLevel] || '#112';
+  ctx.fillRect(cameraX, 0, 800, 450);
+
+  // Background image parallax
+  let bgKey = ['bgGreen','bgDesert','bgWater','bgCosmic'][currentLevel];
+  const bg = images[bgKey];
+  if (bg && bg.complete) {
+    const px = cameraX * 0.22;
+    ctx.drawImage(bg, px % 800 - 800, 0, 800, 450);
+    ctx.drawImage(bg, px % 800 , 0, 800, 450);
+    ctx.drawImage(bg, px % 800 + 800, 0, 800, 450);
+  }
+
+  // Mid layer parallax
+  let layerKey = ['layerGreen','layerDesert','layerWater','layerCosmic'][currentLevel];
+  const layer = images[layerKey];
+  if (layer && layer.complete) {
+    const lx = cameraX * 0.48;
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(layer, lx % 800 - 800, 12, 800, 410);
+    ctx.drawImage(layer, lx % 800, 12, 800, 410);
+    ctx.drawImage(layer, lx % 800 + 800, 12, 800, 410);
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw platforms themed + props
+  const platCols = ['#166534', '#854d0e', '#164e63', '#581c87'];
+  ctx.fillStyle = platCols[currentLevel];
+  platforms.forEach(p => {
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#fff3';
+    ctx.fillRect(p.x, p.y, p.w, 4);
+    ctx.fillStyle = platCols[currentLevel];
+    // simple theme decorations on platforms
+    if (currentLevel === 0) { // grass tufts
+      ctx.fillStyle = '#4ade80'; ctx.fillRect(p.x + 22, p.y - 3, 7, 5);
+    } else if (currentLevel === 1) { // desert rocks
+      ctx.fillStyle = '#a16207'; ctx.fillRect(p.x + p.w - 26, p.y + 3, 14, 7);
+    }
+  });
+  ctx.fillStyle = platCols[currentLevel];
+
+  // Draw loops (gorgeous ring visuals)
+  ctx.strokeStyle = '#facc15';
+  ctx.lineWidth = 7;
+  loops.forEach(lp => {
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y, lp.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#fef08c';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y, lp.r - 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 7;
+  });
+
+  // Collectibles - star rings
+  const ringImg = images.starRing;
+  const secretImg = images.secretRing;
   collectibles.forEach(c => {
     if (!c.collected) {
-      const dx = player.x + 16 - c.x;
-      const dy = player.y + 24 - c.y;
-      if (Math.sqrt(dx*dx + dy*dy) < 22) {
-        c.collected = true;
-        rings++;
-        score += 100;
-        playSFX(1200, 0.15, 'sine', 0.5);
-        createParticles(c.x, c.y, 8, '#facc15');
+      const img = c.isSecret && secretImg && secretImg.complete ? secretImg : ringImg;
+      if (img && img.complete) {
+        const bob = Math.sin(Date.now()/160 + c.x) * 2.5;
+        ctx.drawImage(img, c.x - c.r, c.y - c.r + bob, c.r*2, c.r*2);
+      } else {
+        ctx.fillStyle = c.isSecret ? '#fde047' : L.ringColor;
+        ctx.beginPath(); ctx.arc(c.x, c.y + Math.sin(Date.now()/170)*2, c.r, 0, Math.PI*2); ctx.fill();
       }
+    }
+  });
+
+  // Power-up orbs
+  powerUps.forEach(pu => {
+    if (pu.collected) return;
+    const puImg = images.powerImg;
+    if (puImg && puImg.complete) {
+      const sx = pu.type === 'speed' ? 0 : 48;
+      ctx.drawImage(puImg, sx, 0, 46, 46, pu.x - 22, pu.y - 22, 44, 44);
+    } else {
+      ctx.fillStyle = pu.type === 'speed' ? '#ef4444' : '#38bdf8';
+      ctx.fillRect(pu.x - 14, pu.y - 14, 28, 28);
     }
   });
 
   // Enemies
+  const enImg = images.enemy;
   enemies.forEach(e => {
-    e.x += e.vx;
-    if (e.x < 50 || e.x > 750) e.vx *= -1;
-
-    // Hit player
-    if (Math.abs(player.x - e.x) < 30 && Math.abs(player.y - e.y) < 30) {
-      if (player.spin && player.vy > 0) {
-        e.vx = 0; // "stomp"
-        score += 300;
-        playSFX(400, 0.2, 'square', 0.4);
-        createParticles(e.x, e.y, 6, '#f97316');
-      } else {
-        // Hit, lose ring or slow
-        if (rings > 0) rings--;
-        player.vx = -player.vx * 0.5;
-        playSFX(300, 0.3, 'sawtooth', 0.3);
-      }
+    if (!e.alive) return;
+    if (enImg && enImg.complete) {
+      ctx.drawImage(enImg, e.x, e.y, e.w, e.h);
+    } else {
+      ctx.fillStyle = '#b91c1c';
+      ctx.fillRect(e.x, e.y, e.w, e.h);
     }
   });
 
-  // Bounds
-  if (player.x < 20) player.x = 20;
-  if (player.x > 780) player.x = 780;
-  if (player.y > 400) {
-    player.y = 300;
-    player.vy = -8;
-  }
-
-  // Camera scroll
-  bgX = (bgX - player.vx * 0.3) % 800;
-  layerX = (layerX - player.vx * 0.6) % 800;
-
-  updateParticles();
-  document.getElementById('rings').textContent = String(rings).padStart(3, '0');
-  document.getElementById('score').textContent = String(score).padStart(6, '0');
-  document.getElementById('time').textContent = Math.floor(time);
-}
-
-function createParticles(x, y, n, col) {
-  for (let i = 0; i < n; i++) {
-    particles.push({ x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*4-1, life: 15, color: col });
-  }
-}
-
-function updateParticles() {
-  particles = particles.filter(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
-    return p.life > 0;
-  });
-}
-
-function draw() {
-  ctx.fillStyle = '#1a2a44';
-  ctx.fillRect(0, 0, 800, 450);
-
-  // Parallax backgrounds
-  const bg1 = new Image(); bg1.src = '/assets/sidescroller-bg.jpg';
-  const bg2 = new Image(); bg2.src = '/assets/sidescroller-layer2.jpg';
-  ctx.drawImage(bg1, bgX, 0, 800, 450);
-  ctx.drawImage(bg1, bgX + 800, 0, 800, 450);
-  ctx.globalAlpha = 0.7;
-  ctx.drawImage(bg2, layerX, 50, 800, 350);
-  ctx.drawImage(bg2, layerX + 800, 50, 800, 350);
-  ctx.globalAlpha = 1;
-
-  // Platforms
-  ctx.fillStyle = '#228b22';
-  platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
-
-  // Collectibles (rings)
-  const ringImg = new Image(); ringImg.src = '/assets/star-ring.png';
-  collectibles.forEach(c => {
-    if (!c.collected) {
-      ctx.drawImage(ringImg, c.x - 12, c.y - 12, 24, 24);
+  // Boss
+  if (boss && boss.alive) {
+    const bImg = images.bossImg;
+    if (bImg && bImg.complete) {
+      ctx.drawImage(bImg, boss.x, boss.y, boss.w, boss.h);
+    } else {
+      ctx.fillStyle = '#6b21a8';
+      ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+      ctx.fillStyle = '#f0abfc';
+      ctx.fillRect(boss.x + 18, boss.y + 15, 48, 22);
     }
-  });
-
-  // Enemies simple
-  ctx.fillStyle = '#ef4444';
-  enemies.forEach(e => {
-    ctx.fillRect(e.x, e.y, e.w, e.h);
-    ctx.fillStyle = '#fff';
-    ctx.fillText('X', e.x + 6, e.y + 18);
-  });
-
-  // Player Joshway
-  ctx.fillStyle = '#3b82f6';
-  ctx.fillRect(player.x, player.y, player.width, player.height);
-  ctx.fillStyle = '#f97316';
-  ctx.fillRect(player.x + 4, player.y + 4, 24, 8); // cape hint
-  if (player.spin) {
-    ctx.fillStyle = '#facc15';
-    ctx.fillRect(player.x - 4, player.y + 10, 40, 4);
+    // hp bar
+    ctx.fillStyle = '#111';
+    ctx.fillRect(boss.x + 4, boss.y - 14, boss.w - 8, 8);
+    ctx.fillStyle = '#c026ff';
+    ctx.fillRect(boss.x + 5, boss.y - 13, (boss.w - 10) * (boss.hp / 4), 6);
   }
 
-  // Particles
+  // Goal / finish
+  ctx.fillStyle = '#eab308';
+  ctx.fillRect(goalX - 8, 180, 18, 200);
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 6; i++) ctx.fillRect(goalX - 6, 186 + i * 32, 14, 14);
+
+  // Player using spritesheet or fallback - Joshway hero
+  let pImg = images.playerSheet;
+  let useOld = false;
+  if (!pImg || !pImg.complete) {
+    pImg = images.playerOld;
+    useOld = true;
+  }
+  ctx.save();
+  if (pImg && pImg.complete) {
+    if (useOld) {
+      // original running sheet: 4 horizontal frames ~64px each
+      const frameW = 64;
+      const sx = Math.min(3, player.frame) * frameW;
+      ctx.translate(player.x + 17, player.y + 22);
+      if (player.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(pImg, sx, 0, frameW, 48, -17, -24, 34, 48);
+    } else {
+      const frameW = 64;
+      const sx = (player.frame % 4) * frameW;
+      const sy = player.spin ? 32 : (player.onGround ? 0 : 16);
+      ctx.translate(player.x + 17, player.y + 22);
+      if (player.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(pImg, sx, sy, frameW, 44, -17, -22, 34, 44);
+    }
+  } else {
+    // fallback cute rect art
+    ctx.fillStyle = '#3b82f6';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.fillStyle = '#c026ff';
+    ctx.fillRect(player.x + 6, player.y + 3, 22, 7);
+    if (player.spin) {
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(player.x - 3, player.y + 8, player.width + 8, 5);
+    }
+  }
+  ctx.restore();
+
+  // Particles in world space
   particles.forEach(p => {
     ctx.fillStyle = p.color;
-    ctx.globalAlpha = p.life / 15;
-    ctx.fillRect(p.x, p.y, 4, 4);
+    ctx.globalAlpha = Math.max(0.2, p.life / 26);
+    ctx.fillRect(p.x, p.y, p.size || 4, p.size || 4);
   });
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = 1.0;
 
-  if (gameOver) {
-    ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    ctx.fillRect(200, 150, 400, 150);
-    ctx.fillStyle = '#facc15';
-    ctx.font = 'bold 32px monospace';
-    ctx.fillText('LEVEL COMPLETE!', 230, 210);
-    ctx.font = '18px monospace';
-    ctx.fillText('Press R for next or SPACE to restart', 220, 260);
+  ctx.restore(); // end camera
+
+  // On screen speed lines when fast
+  if (Math.abs(player.vx) > 7.5 && gameState === 'playing') {
+    ctx.strokeStyle = 'rgba(254,249,140,0.5)';
+    ctx.lineWidth = 1;
+    for (let i=0; i<5; i++) {
+      const ly = 80 + i * 68;
+      ctx.beginPath();
+      ctx.moveTo(40, ly);
+      ctx.lineTo(190, ly + (player.vx > 0 ? 6 : -6));
+      ctx.stroke();
+    }
   }
 }
 
 function gameLoop() {
-  update();
+  if (gameState === 'playing') {
+    update();
+  }
   draw();
   requestAnimationFrame(gameLoop);
 }
 
+function initControls() {
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Space') e.preventDefault();
+
+    if (gameState === 'playing') {
+      if (e.code === 'KeyR') {
+        resetLevel(currentLevel);
+        startMusicForLevel(currentLevel);
+      }
+    }
+    if (gameState === 'complete' && (e.code === 'Space' || e.code === 'Enter')) {
+      nextLevel();
+    }
+    if (gameState === 'over' && e.code === 'Space') {
+      restartFromOver();
+    }
+    if (e.code === 'Escape' && gameState === 'playing') {
+      gameState = 'title';
+      document.getElementById('titleOverlay').classList.add('active');
+      stopMusic();
+    }
+  });
+  window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+  // Touch support basic
+  canvas.addEventListener('touchstart', (e) => {
+    if (gameState !== 'playing') return;
+    const tx = e.touches[0].clientX;
+    if (tx < 200) keys['ArrowLeft'] = true;
+    else if (tx > 600) keys['ArrowRight'] = true;
+    else keys['Space'] = true;
+    e.preventDefault();
+  });
+  canvas.addEventListener('touchend', () => {
+    keys['ArrowLeft'] = keys['ArrowRight'] = keys['Space'] = false;
+  });
+}
+
+function startGameFromTitle() {
+  document.getElementById('titleOverlay').classList.remove('active');
+  gameState = 'playing';
+  currentLevel = 0;
+  score = 0;
+  resetLevel(0);
+  startMusicForLevel(0);
+}
+window.startGameFromTitle = startGameFromTitle;
+
+function startGameFromStory() {
+  hideStory();
+  document.getElementById('titleOverlay').classList.remove('active');
+  gameState = 'playing';
+  currentLevel = 0;
+  score = 0;
+  resetLevel(0);
+  startMusicForLevel(0);
+}
+window.startGameFromStory = startGameFromStory;
+
+function showStory() {
+  document.getElementById('titleOverlay').classList.remove('active');
+  document.getElementById('storyOverlay').classList.add('active');
+}
+window.showStory = showStory;
+
+function hideStory() {
+  document.getElementById('storyOverlay').classList.remove('active');
+  document.getElementById('titleOverlay').classList.add('active');
+}
+window.hideStory = hideStory;
+
+function showHighScores() {
+  document.getElementById('titleOverlay').classList.remove('active');
+  const list = document.getElementById('highscoreList');
+  let hs = [];
+  try { hs = JSON.parse(localStorage.getItem('joshwayHighScores') || '[]'); } catch(e){}
+  if (!hs.length) list.innerHTML = '<p style="opacity:0.7">No high scores yet. Be the first legend!</p>';
+  else list.innerHTML = hs.map((h,i) => `${i+1}. <b>${h.score}</b> pts — ${h.date}`).join('<br>');
+  document.getElementById('highScoresOverlay').classList.add('active');
+}
+window.showHighScores = showHighScores;
+
+function hideHighScores() {
+  document.getElementById('highScoresOverlay').classList.remove('active');
+  document.getElementById('titleOverlay').classList.add('active');
+}
+window.hideHighScores = hideHighScores;
+
+function nextLevel() {
+  document.getElementById('completeOverlay').classList.remove('active');
+  currentLevel++;
+  if (currentLevel >= levelData.length) {
+    // full game win
+    gameState = 'over';
+    document.getElementById('gameOverOverlay').classList.add('active');
+    document.getElementById('finalScore').innerHTML = `★ VICTORY! FINAL SCORE: ${score} ★<br>ALL STAR RINGS RECOVERED!`;
+    return;
+  }
+  gameState = 'playing';
+  resetLevel(currentLevel);
+  startMusicForLevel(currentLevel);
+}
+window.nextLevel = nextLevel;
+
+function restartCurrentLevel() {
+  document.getElementById('completeOverlay').classList.remove('active');
+  gameState = 'playing';
+  resetLevel(currentLevel);
+  startMusicForLevel(currentLevel);
+}
+window.restartCurrentLevel = restartCurrentLevel;
+
+function restartFromOver() {
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  gameState = 'playing';
+  currentLevel = 0;
+  score = 0;
+  resetLevel(0);
+  startMusicForLevel(0);
+}
+window.restartFromOver = restartFromOver;
+
+function backToTitle() {
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  document.getElementById('completeOverlay').classList.remove('active');
+  document.getElementById('titleOverlay').classList.add('active');
+  gameState = 'title';
+  stopMusic();
+}
+window.backToTitle = backToTitle;
+
 function init() {
+  loadImages();
   initAudio();
-  startSpeedMusic();
+  initControls();
 
-  window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
-  window.addEventListener('keyup', e => keys[e.code] = false);
+  // Hide all overlays initially handled in html
+  document.getElementById('powerHud').style.display = 'none';
 
-  resetLevel();
+  // Start with title visible
+  gameState = 'title';
 
-  // Title art overlay hint
-  const titleImg = new Image();
-  titleImg.onload = () => { /* could draw but main canvas game */ };
+  // Boot on first level assets but don't start
+  resetLevel(0);
+  // but state title so draw happens with overlays
 
   gameLoop();
 
-  // Simple win condition for demo
-  setInterval(() => {
-    if (rings >= 6 && !gameOver) {
-      gameOver = true;
-      // Auto advance or score bonus
-      score += 2000;
-    }
-  }, 500);
+  // Easter egg: click canvas title to give speed
+  canvas.addEventListener('click', () => {
+    if (gameState === 'playing' && Math.abs(player.vx) < 3) player.vx = 8;
+  });
+
+  console.log('%c[JOSHWAY SPEED] Full production build ready. Gorgeous Sonic-like experience loaded!', 'color:#facc15');
 }
 
 init();

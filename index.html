@@ -5,18 +5,103 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JOSHWAY SPEED</title>
   <style>
-    body { margin: 0; background: #112; color: #fff; font-family: monospace; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-    canvas { border: 4px solid #facc15; image-rendering: pixelated; }
-    .title { font-size: 36px; color: #f97316; text-shadow: 3px 3px 0 #000; margin: 8px; }
-    .hud { font-size: 18px; color: #4ade80; margin: 4px; }
-    .controls { font-size: 12px; margin: 4px; opacity: 0.8; }
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap');
+    body { margin: 0; background: #0a1628; color: #fff; font-family: 'Press Start 2P', monospace; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+    #game { border: 6px solid #facc15; image-rendering: pixelated; box-shadow: 0 0 30px #facc15aa, inset 0 0 20px #000; background: #112; }
+    .title { font-size: 28px; color: #facc15; text-shadow: 4px 4px 0 #000, -2px -2px 0 #f97316; margin: 4px 0; letter-spacing: 4px; }
+    .hud { font-size: 14px; color: #4ade80; margin: 2px; text-shadow: 2px 2px 0 #000; display: flex; gap: 20px; align-items: center; }
+    .hud span { color: #facc15; }
+    .controls { font-size: 10px; margin: 2px 0 8px; opacity: 0.85; text-align: center; line-height: 1.4; }
+    .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 100; background: rgba(10,22,40,0.88); }
+    .overlay.active { display: flex; }
+    .panel { background: #112233; border: 6px solid #facc15; padding: 24px 32px; text-align: center; max-width: 620px; box-shadow: 0 0 40px #000; }
+    .panel h1 { color: #facc15; font-size: 22px; margin: 0 0 12px; text-shadow: 3px 3px 0 #000; }
+    .panel p { font-size: 11px; line-height: 1.6; margin: 8px 0; color: #a5f3fc; }
+    .btn { background: #f97316; color: #fff; border: 4px solid #000; padding: 8px 20px; font-family: inherit; font-size: 12px; margin: 6px; cursor: pointer; }
+    .btn:hover { background: #facc15; color: #000; }
+    .level-select { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .level-btn { background: #1a3a5c; border: 3px solid #4ade80; color: #fff; padding: 6px 14px; font-size: 10px; }
+    .level-btn.active { border-color: #facc15; background: #2a5a7c; }
+    .story-text { font-size: 13px; max-width: 520px; margin: 0 auto; text-align: left; }
+    .highscore-list { font-size: 12px; margin: 12px 0; text-align: left; line-height: 1.8; }
+    .power-hud { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-size: 10px; background:#111a; padding:1px 9px; border:2px solid #facc15; color: #facc15; text-shadow: 1px 1px 0 #000; display: none; }
   </style>
 </head>
 <body>
-  <div class="title">JOSHWAY SPEED</div>
-  <div class="hud">RINGS: <span id="rings">000</span> | TIME: <span id="time">00</span> | SCORE: <span id="score">000000</span></div>
-  <canvas id="game" width="800" height="450"></canvas>
-  <div class="controls">SPACE / UP: Jump | DOWN: Spin | Arrow keys or WASD to move | Collect Star Rings in beautiful worlds!</div>
+  <div class="title">★ JOSHWAY SPEED ★</div>
+  <div class="hud">
+    <span>RINGS <span id="rings">000</span></span> 
+    <span>TIME <span id="time">00</span></span> 
+    <span>SCORE <span id="score">000000</span></span> 
+    <span id="levelName">GREEN HILLS</span>
+  </div>
+  <div id="gameContainer" style="position: relative; width: 812px; height: 462px;">
+    <canvas id="game" width="800" height="450"></canvas>
+    <div class="power-hud" id="powerHud">BOOST / FLIGHT</div>
+  </div>
+  <div class="controls">
+    ARROWS / WASD MOVE &nbsp;•&nbsp; SPACE/UP JUMP &nbsp;•&nbsp; DOWN SPIN-DASH LAUNCH &nbsp;•&nbsp; R RESTART &nbsp;•&nbsp; Collect ★ STAR RINGS across 4 stunning worlds!
+  </div>
+
+  <!-- TITLE OVERLAY -->
+  <div id="titleOverlay" class="overlay active">
+    <div class="panel">
+      <img src="/assets/title-banner.jpg" alt="Joshway Speed" style="width:100%; max-width:580px; border:4px solid #facc15; margin-bottom:12px;">
+      <h1>JOSHWAY SPEED</h1>
+      <p style="font-size:11px;">A SONIC-LIKE ADVENTURE • RUN • JUMP • COLLECT STAR RINGS</p>
+      <button class="btn" onclick="startGameFromTitle()">PRESS START</button>
+      <div style="margin-top:12px;">
+        <button class="btn" onclick="showStory()">STORY</button>
+        <button class="btn" onclick="showHighScores()">HIGH SCORES</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORY INTRO -->
+  <div id="storyOverlay" class="overlay">
+    <div class="panel">
+      <h1>THE QUEST BEGINS</h1>
+      <div class="story-text">
+        <p>In the sparkling realms of Joshway, the Star Rings have been scattered by the Chaos Lord!</p>
+        <p>Young hero Joshway — cape flying, glasses gleaming — must race across 4 gorgeous worlds to recover every ring.</p>
+        <p>Run at blinding speeds, loop through ancient ruins, fly with power-ups, and defeat the boss guardians.</p>
+        <p>The fate of the sparkle is in your hands. Collect them all!</p>
+      </div>
+      <button class="btn" onclick="startGameFromStory()">BEGIN THE JOURNEY</button>
+      <button class="btn" onclick="hideStory()" style="background:#444;">BACK</button>
+    </div>
+  </div>
+
+  <!-- LEVEL COMPLETE -->
+  <div id="completeOverlay" class="overlay">
+    <div class="panel">
+      <h1>★ LEVEL COMPLETE! ★</h1>
+      <p id="completeStats">Rings: 00 | Time: 00 | Bonus: 00000</p>
+      <p id="completeMsg"></p>
+      <button class="btn" onclick="nextLevel()">NEXT LEVEL →</button>
+      <button class="btn" onclick="restartCurrentLevel()">REPLAY LEVEL</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOverOverlay" class="overlay">
+    <div class="panel">
+      <h1>GAME OVER</h1>
+      <p id="finalScore"></p>
+      <button class="btn" onclick="restartFromOver()">TRY AGAIN</button>
+      <button class="btn" onclick="backToTitle()">TITLE SCREEN</button>
+    </div>
+  </div>
+
+  <!-- HIGH SCORES -->
+  <div id="highScoresOverlay" class="overlay">
+    <div class="panel">
+      <h1>TOP RUNNERS</h1>
+      <div id="highscoreList" class="highscore-list"></div>
+      <button class="btn" onclick="hideHighScores()">BACK</button>
+    </div>
+  </div>
+
   <script type="module" src="/main.js"></script>
 </body>
 </html>
