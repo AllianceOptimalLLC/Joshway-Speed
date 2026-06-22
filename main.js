@@ -62,7 +62,7 @@ const levelData = [
     rings: [[160,240],[230,170],[320,290],[410,140],[510,250],[640,200],[820,100],[920,280],[1080,220],[1220,140],[1380,290],[1560,180],[1720,240],[1880,110],[2050,280]],
     secrets: [[420,80],[1150,60],[1920,70]],
     enemies: [{x:380,y:355,vx:1.8},{x:720,y:355,vx:-1.6},{x:1220,y:355,vx:1.4},{x:1700,y:355,vx:1.7},{x:1980,y:355,vx:-1.5}],
-    powerups: [{x:740,y:220,type:'speed'},{x:1520,y:170,type:'flight'}],
+    powerups: [{x:740,y:220,type:'speed'},{x:1520,y:170,type:'flight'},{x:1980,y:120,type:'magnet'}],
     loops: [{x:1550,y:310,r:58}],
     hasBoss: false
   },
@@ -84,7 +84,7 @@ const levelData = [
     rings: [[130,260],[220,175],[310,320],[450,145],[580,235],[710,175],[850,95],[970,300],[1120,185],[1270,265],[1450,125],[1600,215],[1780,305],[1950,145],[2150,235],[2300,180]],
     secrets: [[560,95],[1420,105],[2110,85]],
     enemies: [{x:290,y:368,vx:2.1},{x:580,y:368,vx:-1.9},{x:1020,y:368,vx:1.6},{x:1530,y:368,vx:-1.8},{x:2040,y:368,vx:2.0}],
-    powerups: [{x:620,y:240,type:'speed'},{x:1750,y:195,type:'flight'}],
+    powerups: [{x:620,y:240,type:'speed'},{x:1750,y:195,type:'flight'},{x:980,y:110,type:'magnet'}],
     loops: [{x:950,y:320,r:52},{x:1720,y:290,r:48}],
     hasBoss: false
   },
@@ -106,7 +106,7 @@ const levelData = [
     rings: [[140,235],[205,145],[295,310],[380,105],[520,205],[650,265],[780,125],[910,275],[1060,165],[1190,300],[1350,195],[1520,115],[1670,285],[1840,170],[2000,250],[2180,135],[2340,295]],
     secrets: [[290,70],[1040,90],[1990,65]],
     enemies: [{x:340,y:363,vx:1.5},{x:620,y:363,vx:-2.2},{x:990,y:363,vx:1.3},{x:1380,y:363,vx:-1.8},{x:1890,y:363,vx:2.3},{x:2270,y:363,vx:-1.6}],
-    powerups: [{x:580,y:180,type:'flight'},{x:1680,y:235,type:'speed'}],
+    powerups: [{x:580,y:180,type:'flight'},{x:1680,y:235,type:'speed'},{x:820,y:95,type:'magnet'}],
     loops: [{x:1120,y:300,r:55}],
     hasBoss: false
   },
@@ -129,7 +129,7 @@ const levelData = [
     rings: [[120,225],[185,120],[280,305],[390,155],[500,225],[610,290],[750,95],[880,255],[1020,165],[1170,295],[1310,135],[1480,245],[1620,85],[1770,310],[1930,175],[2100,255],[2260,130],[2440,290],[2600,200]],
     secrets: [[470,60],[1290,55],[2200,75]],
     enemies: [{x:260,y:374,vx:2.3},{x:490,y:374,vx:-2.0},{x:860,y:374,vx:1.7},{x:1140,y:374,vx:-2.5},{x:1510,y:374,vx:1.9},{x:2030,y:374,vx:-1.8},{x:2440,y:374,vx:2.1}],
-    powerups: [{x:660,y:145,type:'speed'},{x:1580,y:105,type:'flight'},{x:2350,y:220,type:'speed'}],
+    powerups: [{x:660,y:145,type:'speed'},{x:1580,y:105,type:'flight'},{x:2350,y:220,type:'speed'},{x:1020,y:100,type:'magnet'}],
     loops: [{x:860,y:310,r:60},{x:1600,y:260,r:50}],
     hasBoss: true
   }
@@ -455,17 +455,34 @@ function handleCollectibles() {
     }
   });
 
+  // Magnet rings attraction - gorgeous effect
+  if (powerupType === 'magnet') {
+    collectibles.forEach(c => {
+      if (c.collected) return;
+      const dx = (player.x + 17) - c.x;
+      const dy = (player.y + 22) - c.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 220 && dist > 6) {
+        const pull = 0.85 + (220 - dist) * 0.004;
+        c.x += dx / dist * pull;
+        c.y += dy / dist * pull;
+        if (Math.random() < 0.35) createParticle(c.x, c.y, (dx/dist)*-1.5, (dy/dist)*-1.5 - 0.5, 6, '#a78bfa', 2);
+      }
+    });
+  }
+
   // Power-ups
   powerUps.forEach(pu => {
     if (pu.collected) return;
     if (Math.hypot(player.x + 17 - pu.x, player.y + 22 - pu.y) < 28) {
       pu.collected = true;
       powerupType = pu.type;
-      powerupTimer = (pu.type === 'speed' ? 380 : 340);
+      powerupTimer = (pu.type === 'speed' ? 420 : pu.type === 'magnet' ? 520 : 360);
       playSFX(920, 0.22, 'sine', 0.6);
-      spawnRingBurst(pu.x, pu.y, 9, pu.type === 'speed' ? '#f87171' : '#bae6fd');
+      const col = pu.type === 'speed' ? '#f87171' : pu.type === 'magnet' ? '#a78bfa' : '#bae6fd';
+      spawnRingBurst(pu.x, pu.y, 9, col);
       powerHud.style.display = 'block';
-      powerHud.textContent = (pu.type === 'speed' ? '⚡ SPEED BOOST' : '✈️ FLIGHT ACTIVE');
+      powerHud.textContent = (pu.type === 'speed' ? '⚡ SPEED BOOST' : pu.type === 'magnet' ? '🧲 RING MAGNET' : '✈️ FLIGHT / CAPE');
     }
   });
 }
@@ -555,6 +572,8 @@ function updatePowerups() {
     } else if (powerupTimer % 28 === 0) {
       if (powerupType === 'speed') {
         createParticle(player.x + (player.facing > 0 ? -4 : 34), player.y + 38, player.facing * -3.5, 0.4, 7, '#f87171', 3);
+      } else if (powerupType === 'magnet') {
+        createParticle(player.x + 17, player.y + 10, (Math.random()-0.5)*3, -1, 5, '#a78bfa', 2);
       }
     }
   }
