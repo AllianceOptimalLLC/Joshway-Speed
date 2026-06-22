@@ -128,7 +128,7 @@ const levelData = [
       {x:1920,y:255,w:125,h:14}, {x:2160,y:195,w:100,h:14}, {x:2410,y:285,w:95,h:14}
     ],
     rings: [[120,225],[185,120],[280,305],[390,155],[500,225],[610,290],[750,95],[880,255],[1020,165],[1170,295],[1310,135],[1480,245],[1620,85],[1770,310],[1930,175],[2100,255],[2260,130],[2440,290],[2600,200],[520,80],[1450,65],[1980,110],[2720,150]],
-    secrets: [[470,60],[1290,55],[2200,75]],
+    secrets: [[470,60],[1290,55],[2200,75],[710,40],[2550,50]],
     enemies: [{x:260,y:374,vx:2.3},{x:490,y:374,vx:-2.0},{x:860,y:374,vx:1.7},{x:1140,y:374,vx:-2.5},{x:1510,y:374,vx:1.9},{x:2030,y:374,vx:-1.8},{x:2440,y:374,vx:2.1}],
     powerups: [{x:660,y:145,type:'speed'},{x:1580,y:105,type:'flight'},{x:2350,y:220,type:'speed'},{x:1020,y:100,type:'magnet'}],
     loops: [{x:860,y:310,r:60},{x:1600,y:260,r:50}],
@@ -251,6 +251,7 @@ function updateParticles() {
     const p = particles[i];
     p.x += p.vx; p.y += p.vy;
     p.vy += 0.18;
+    p.vx *= 0.985; // slight drag for nicer trails
     p.life -= 1;
     if (p.life <= 0) particles.splice(i, 1);
   }
@@ -429,6 +430,9 @@ function handleCollisions() {
         if (player.spin && Math.abs(player.vx) > 3) {
           player.vx *= 0.72; // spin friction
         }
+        if (Math.abs(player.vy) > 1 || Math.abs(player.vx) > 4) { // landing puff
+          for (let i=0; i<3; i++) createParticle(player.x + 8 + Math.random()*20, player.y + player.height, (Math.random()-0.5)*1.2, 0.8, 7, '#ddd', 2);
+        }
       }
       // bottom hit
       else if (player.vy < 0 && (player.y - player.vy) >= py + ph - 4) {
@@ -521,7 +525,8 @@ function handleCollectibles() {
       c.collected = true;
       rings++;
       collectedThisLevel++;
-      const pts = c.isSecret ? 450 : 120;
+      let pts = c.isSecret ? 450 : 120;
+      if (powerupType === 'magnet') pts = Math.floor(pts * 1.35);
       score += pts;
       if (c.isSecret) secretsFound++;
       const pitch = (c.isSecret ? 1480 : 1180) + (rings % 8) * 55; // nice ascending combo pitch
@@ -786,6 +791,12 @@ function update() {
   if (powerupType === 'magnet' && Math.random() < 0.7) {
     createParticle(player.x + 17 + (Math.random()-0.5)*36, player.y + 12 + Math.random()*22, (Math.random()-0.5)*0.8, -0.8, 7, '#a78bfa', 2);
   }
+  // Ambient world particles for polish (bubbles in aqua, stars in cosmic, petals in green)
+  if (Math.random() < 0.08) {
+    if (currentLevel === 2) createParticle(50 + Math.random()*(worldWidth-100), 80 + Math.random()*140, (Math.random()-0.5)*0.6, 0.8, 18, '#67e8f9', 2);
+    else if (currentLevel === 3) createParticle(30 + Math.random()*(worldWidth-60), 20 + Math.random()*160, (Math.random()-0.5)*0.4, 0.1, 32, '#c084fc', 1);
+    else if (currentLevel === 0 && Math.random()<0.5) createParticle(80 + Math.random()*(worldWidth-160), 140 + Math.random()*80, -0.3, 0.3, 26, '#86efac', 2);
+  }
 }
 
 function draw() {
@@ -793,8 +804,8 @@ function draw() {
   ctx.save();
   ctx.translate(-Math.floor(cameraX), 0);
 
-  // Sky / base fill per theme
-  const skyColors = ['#0f2b4a', '#3f2a1f', '#0b2538', '#1a0f36'];
+  // Sky / base fill per theme - tuned for gorgeous new parallax bgs
+  const skyColors = ['#1e3a8a', '#451a03', '#164e63', '#312e81'];
   ctx.fillStyle = skyColors[currentLevel] || '#112';
   ctx.fillRect(cameraX, 0, 800, 450);
 
@@ -959,12 +970,15 @@ function draw() {
   powerUps.forEach(pu => {
     if (pu.collected) return;
     const puImg = images.powerImg;
-    if (puImg && puImg.complete) {
+    if (puImg && puImg.complete && pu.type !== 'magnet') {
       const sx = pu.type === 'speed' ? 0 : 48;
       ctx.drawImage(puImg, sx, 0, 46, 46, pu.x - 22, pu.y - 22, 44, 44);
     } else {
-      ctx.fillStyle = pu.type === 'speed' ? '#ef4444' : '#38bdf8';
+      ctx.fillStyle = pu.type === 'speed' ? '#ef4444' : (pu.type === 'magnet' ? '#7c3aed' : '#38bdf8');
       ctx.fillRect(pu.x - 14, pu.y - 14, 28, 28);
+      if (pu.type === 'magnet') {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(pu.x, pu.y, 9, 0, Math.PI*2); ctx.stroke(); ctx.lineWidth=1;
+      }
     }
   });
 
@@ -1014,11 +1028,16 @@ function draw() {
     }
   }
 
-  // Goal / finish
+  // Goal / finish - beautiful checkpoint with glow
   ctx.fillStyle = '#eab308';
   ctx.fillRect(goalX - 8, 180, 18, 200);
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 6; i++) ctx.fillRect(goalX - 6, 186 + i * 32, 14, 14);
+  // flag flutter
+  ctx.fillStyle = '#facc15';
+  ctx.fillRect(goalX + 8, 175 + Math.sin(Date.now()/180)*4, 36, 22);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(goalX + 12, 182 + Math.sin(Date.now()/180)*4, 8, 8);
 
   // Player using spritesheet or fallback - Joshway hero + procedural cape polish & effects
   let pImg = images.playerSheet;
@@ -1177,6 +1196,7 @@ function startGameFromTitle() {
   currentLevel = 0;
   score = 0;
   resetLevel(0);
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   startMusicForLevel(0);
 }
 window.startGameFromTitle = startGameFromTitle;
@@ -1187,6 +1207,7 @@ function startLevel(lvl) {
   currentLevel = lvl;
   if (lvl === 0) score = 0;
   resetLevel(lvl);
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   startMusicForLevel(lvl);
 }
 window.startLevel = startLevel;
@@ -1243,6 +1264,7 @@ function nextLevel() {
   }
   gameState = 'playing';
   resetLevel(currentLevel);
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   startMusicForLevel(currentLevel);
 }
 window.nextLevel = nextLevel;
@@ -1251,6 +1273,7 @@ function restartCurrentLevel() {
   document.getElementById('completeOverlay').classList.remove('active');
   gameState = 'playing';
   resetLevel(currentLevel);
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   startMusicForLevel(currentLevel);
 }
 window.restartCurrentLevel = restartCurrentLevel;
@@ -1261,6 +1284,7 @@ function restartFromOver() {
   currentLevel = 0;
   score = 0;
   resetLevel(0);
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   startMusicForLevel(0);
 }
 window.restartFromOver = restartFromOver;
