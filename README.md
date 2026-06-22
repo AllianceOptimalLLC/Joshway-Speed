@@ -35,6 +35,8 @@ npm run build
 Standalone at https://joshway-speed.vercel.app  
 For joshway.app/speed integration.
 
+**Latest Production Deploy:** https://joshway-speed.vercel.app (via `vercel --prod --yes --scope allianceoptimal`)
+
 ---
 
 Part of the full Joshway game suite. Pure fun, beautiful pixel art + procedural audio.

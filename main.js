@@ -139,10 +139,10 @@ const levelData = [
 let images = {};
 function loadImages() {
   const toLoad = {
-    bgGreen: '/assets/green-hills-bg.jpg',
-    bgDesert: '/assets/desert-bg.jpg',
-    bgWater: '/assets/water-bg.jpg',
-    bgCosmic: '/assets/cosmic-bg.jpg',
+    bgGreen: '/assets/green-hills-procedural-bg.jpg',
+    bgDesert: '/assets/desert-procedural-bg.jpg',
+    bgWater: '/assets/aqua-procedural-bg.jpg',
+    bgCosmic: '/assets/cosmic-procedural-bg.jpg',
     layerGreen: '/assets/sidescroller-layer2.jpg',
     layerDesert: '/assets/desert-layer.png',
     layerWater: '/assets/water-layer.png',
@@ -1180,6 +1180,16 @@ function startGameFromTitle() {
   startMusicForLevel(0);
 }
 window.startGameFromTitle = startGameFromTitle;
+
+function startLevel(lvl) {
+  document.getElementById('titleOverlay').classList.remove('active');
+  gameState = 'playing';
+  currentLevel = lvl;
+  if (lvl === 0) score = 0;
+  resetLevel(lvl);
+  startMusicForLevel(lvl);
+}
+window.startLevel = startLevel;
 
 function startGameFromStory() {
   hideStory();
