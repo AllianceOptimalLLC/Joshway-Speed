@@ -1,0 +1,13 @@
+{
+  "name": "joshway-speed",
+  "version": "1.0.0",
+  "description": "Joshway Speed - Beautiful Sonic-like side scroller with Joshway theme",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
