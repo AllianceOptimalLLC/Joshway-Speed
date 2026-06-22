@@ -177,31 +177,63 @@ function playSFX(freq, dur, type='square', vol=0.25, ramp=0.08) {
   o.frequency.value = freq;
   g.gain.value = vol;
   f.type = 'lowpass';
-  f.frequency.value = 1800;
+  f.frequency.value = type === 'sine' ? 2200 : 1650;
   o.connect(f); f.connect(g); g.connect(audioCtx.destination);
   o.start();
   g.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
   setTimeout(() => { try { o.stop(); } catch(e){} }, dur * 1000 + 40);
+  // Add subtle noise burst for punch on some sfx
+  if (type === 'sawtooth' && vol > 0.2) {
+    const n = audioCtx.createBufferSource();
+    const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur * 0.6, audioCtx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i=0; i<data.length; i++) data[i] = Math.random()*2-1;
+    n.buffer = noiseBuf;
+    const ng = audioCtx.createGain(); ng.gain.value = vol * 0.18;
+    const nf = audioCtx.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=1200;
+    n.connect(nf); nf.connect(ng); ng.connect(audioCtx.destination);
+    n.start();
+    ng.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + dur*0.5);
+  }
 }
 
 let musicTimer = null;
 let musicNote = 0;
+let musicBeat = 0;
 function startMusicForLevel(lvl) {
   if (musicTimer) clearTimeout(musicTimer);
   if (!audioCtx) return;
+  musicNote = 0; musicBeat = 0;
   function tick() {
     if (gameState !== 'playing') return;
-    const themes = [
-      [659, 784, 880, 988, 880, 784, 659], // green happy
-      [523, 587, 659, 698, 659, 523],     // desert
-      [784, 880, 988, 1046, 880, 784],    // water
-      [440, 523, 659, 880, 1046, 880, 659] // cosmic
+    const levelThemes = [
+      // GREEN HILLS: upbeat major chiptune
+      { lead: [659, 784, 880, 988, 880, 784, 659, 784], bass: [330, 392, 440], tempo: 105, vol: 0.09 },
+      // DESERT DUNES: mysterious minor
+      { lead: [523, 587, 659, 698, 659, 523, 494, 523], bass: [262, 294, 330], tempo: 125, vol: 0.1 },
+      // AQUA RUINS: flowing aquatic
+      { lead: [784, 880, 988, 1046, 1175, 1046, 880, 784], bass: [392, 440, 523], tempo: 98, vol: 0.08 },
+      // COSMIC REALM: epic spacey
+      { lead: [440, 523, 659, 880, 1046, 880, 659, 523], bass: [220, 262, 330, 392], tempo: 135, vol: 0.1 }
     ];
-    const notes = themes[lvl % 4];
-    const f = notes[musicNote % notes.length];
-    playSFX(f, 0.09, 'sawtooth', 0.08);
+    const th = levelThemes[lvl % 4];
+    const leadNote = th.lead[musicNote % th.lead.length];
+    const bassNote = th.bass[musicBeat % th.bass.length];
+
+    // Lead melody (richer)
+    playSFX(leadNote, 0.085, 'sawtooth', th.vol * 0.9);
+    // Bass layer for depth
+    if (musicBeat % 2 === 0) playSFX(bassNote, 0.22, 'triangle', 0.065);
+    // Hi-hat / perc chiptune
+    if (musicBeat % 2 === 1) playSFX(1800 + (musicBeat%4)*80, 0.035, 'square', 0.035);
+    // occasional arpeggio flourish
+    if (musicNote % 5 === 0) {
+      setTimeout(() => { if (gameState==='playing') playSFX(leadNote * 1.5, 0.04, 'sine', 0.04); }, 45);
+    }
+
     musicNote++;
-    musicTimer = setTimeout(tick, 115);
+    musicBeat++;
+    musicTimer = setTimeout(tick, th.tempo);
   }
   tick();
 }
@@ -492,9 +524,13 @@ function handleCollectibles() {
       const pts = c.isSecret ? 450 : 120;
       score += pts;
       if (c.isSecret) secretsFound++;
-      playSFX(c.isSecret ? 1480 : 1220, 0.14, 'sine', c.isSecret ? 0.7 : 0.5);
+      const pitch = (c.isSecret ? 1480 : 1180) + (rings % 8) * 55; // nice ascending combo pitch
+      playSFX(pitch, 0.13, 'sine', c.isSecret ? 0.7 : 0.52);
       spawnRingBurst(c.x, c.y, c.isSecret ? 11 : 6, c.isSecret ? '#fde047' : L.ringColor);
-      if (rings % 5 === 0) score += 80;
+      if (rings % 5 === 0) {
+        score += 80;
+        playSFX(1720, 0.1, 'sine', 0.4);
+      }
     }
   });
 
@@ -561,47 +597,66 @@ function handleEnemiesAndBoss() {
     }
   });
 
-  // BOSS
+  // BOSS - enhanced epic patterns for final boss
   if (boss && boss.alive) {
     boss.timer++;
     boss.x += boss.vx;
-    if (boss.x < goalX - 480 || boss.x > goalX + 40) boss.vx *= -1;
+    if (boss.x < goalX - 520 || boss.x > goalX + 80) boss.vx *= -1;
 
-    // attack pattern
-    if (boss.timer % 55 === 0 && Math.abs(boss.x - player.x) < 380) {
-      // simple projectile as particle
+    // phase transitions
+    if (boss.hp < 3 && boss.phase === 0) boss.phase = 1;
+    if (boss.hp < 2 && boss.phase === 1) boss.phase = 2;
+
+    // attack pattern - multi-phase
+    const distToPlayer = Math.abs(boss.x - player.x);
+    if (boss.timer % (boss.phase === 2 ? 28 : 48) === 0 && distToPlayer < 420) {
       const dir = boss.x < player.x ? 1 : -1;
-      for (let i=0; i<3; i++) {
-        createParticle(boss.x + 42, boss.y + 42, dir * (5.5 + i*0.6), (Math.random()-0.5)*3 -1, 38, '#c084fc', 6);
+      const numProj = boss.phase === 2 ? 5 : 3;
+      for (let i=0; i<numProj; i++) {
+        const spread = (i - Math.floor(numProj/2)) * 0.8;
+        createParticle(boss.x + 42, boss.y + 38, dir * (6.5 + i*0.4) + spread, (Math.random()-0.5)*4 -1 + spread*0.3, 42 + boss.phase*4, '#c084fc', 5);
       }
-      playSFX(380, 0.1, 'square', 0.25);
+      playSFX(380, 0.1, 'square', 0.28);
     }
-    if (boss.phase > 1 && boss.timer % 95 === 0) {
-      boss.vy = -4; // hover bob
+    // swoop / charge attack in phase 2+
+    if (boss.phase >= 1 && boss.timer % 82 === 0 && distToPlayer < 340) {
+      boss.vx = (player.x > boss.x ? 4.2 : -4.2);
+      boss.vy = player.y < boss.y ? -3.5 : 2.2;
+      playSFX(280, 0.18, 'sawtooth', 0.35);
+      for (let i=0;i<6;i++) createParticle(boss.x+20, boss.y+30, (Math.random()-0.5)*4, -2, 14, '#e0f2fe', 4);
     }
+    // hover bob + vertical
+    boss.y += boss.vy || 0;
+    if (boss.phase > 0 && boss.timer % (boss.phase>1 ? 55 : 95) === 0) {
+      boss.vy = (boss.y > 190 ? -3.2 : 2.5);
+    }
+    // clamp boss
+    boss.y = Math.max(120, Math.min(boss.y, 260));
 
-    // Boss collision
-    if (Math.abs(player.x + 17 - (boss.x + 42)) < 48 && Math.abs(player.y + 22 - (boss.y + 35)) < 42) {
-      if (player.spin && player.vy > 0) {
+    // Boss collision improved with spin cape
+    if (Math.abs(player.x + 17 - (boss.x + 42)) < 52 && Math.abs(player.y + 22 - (boss.y + 35)) < 48) {
+      if ((player.spin || player.vy > 2) && player.y < boss.y + 20) {
         boss.hp--;
-        score += 900;
-        player.vy = -10;
-        spawnRingBurst(boss.x + 42, boss.y + 30, 12, '#e0f2fe');
+        score += 950;
+        player.vy = -11;
+        spawnRingBurst(boss.x + 42, boss.y + 30, 14, '#e0f2fe');
         playSFX(210, 0.35, 'sawtooth', 0.5);
         if (boss.hp <= 0) {
           boss.alive = false;
-          spawnRingBurst(boss.x + 42, boss.y + 35, 28, '#c084fc');
-          score += 4500;
+          for (let i=0;i<32;i++) createParticle(boss.x + 30 + Math.random()*40, boss.y + 20 + Math.random()*30, (Math.random()-0.5)*7, (Math.random()-0.5)*7-2, 32, '#c084fc', 3 + Math.random()*2);
+          score += 5200;
           playSFX(650, 0.7, 'sine', 0.6);
         }
       } else {
         // hit by boss
-        if (rings > 0) { rings = Math.max(0, rings - 4); spawnRingBurst(player.x+16, player.y+18, 5); }
-        player.vx = -player.facing * 7.5;
-        player.vy = -5;
+        if (rings > 0) { rings = Math.max(0, rings - 4); spawnRingBurst(player.x+16, player.y+18, 6); }
+        player.vx = -player.facing * 8.5;
+        player.vy = -5.5;
         playSFX(190, 0.35, 'sawtooth', 0.4);
       }
     }
+    // reset vy if needed
+    if (Math.abs(boss.vy) > 0) boss.vy *= 0.96;
   }
 }
 
@@ -635,7 +690,14 @@ function checkWinCondition() {
   if (reachedGoal) {
     let bonus = Math.max(0, Math.floor(4200 - time * 38));
     if (secretsFound >= 2) bonus += 1200;
-    score += bonus + rings * 130;
+    const totalRingsInLevel = L.rings.length + L.secrets.length;
+    const ringBonus = rings * 140;
+    let perfectBonus = 0;
+    if (collectedThisLevel >= totalRingsInLevel - 1) {
+      perfectBonus = 1800;
+      bonus += perfectBonus;
+    }
+    score += bonus + ringBonus;
 
     gameState = 'complete';
     stopMusic();
@@ -645,13 +707,18 @@ function checkWinCondition() {
     document.getElementById('completeStats').innerHTML =
       `RINGS: ${rings} &nbsp;|&nbsp; SECRETS: ${secretsFound} &nbsp;|&nbsp; TIME: ${Math.floor(time)}s &nbsp;|&nbsp; BONUS: ${bonus}`;
     const msgEl = document.getElementById('completeMsg');
+    let extra = perfectBonus > 0 ? ' ★ PERFECT CLEAR! ★' : '';
     if (currentLevel === 3) {
-      msgEl.innerHTML = '★ ALL WORLDS CLEARED! YOU ARE A LEGEND! ★';
+      msgEl.innerHTML = '★ ALL WORLDS CLEARED! YOU ARE A LEGEND! ★' + extra;
       saveHighScore(score);
     } else {
-      msgEl.innerHTML = `WORLD CLEARED! Next: ${levelData[currentLevel + 1].name}`;
+      msgEl.innerHTML = `WORLD CLEARED! Next: ${levelData[currentLevel + 1].name}` + extra;
     }
     playSFX(1040, 0.6, 'sine', 0.35);
+    // confetti particles on win
+    for (let i=0; i<26; i++) {
+      createParticle(goalX - 50 + Math.random()*90, 210 + Math.random()*120, (Math.random()-0.5)*3.5, -1.5 - Math.random()*1.5, 30, ['#facc15','#4ade80','#67e8f9','#c084fc'][i%4], 3);
+    }
   }
 }
 
@@ -708,9 +775,16 @@ function update() {
   // Win?
   checkWinCondition();
 
-  // Speed boost effect particles
+  // Speed boost effect particles + dust trail polish
   if (Math.abs(player.vx) > 9 && player.onGround && Math.random() < 0.6) {
     createParticle(player.x + (player.facing>0 ? 4 : 28), player.y + 38, player.facing * -1.6, 1.3, 6, '#fef08c', 2);
+  }
+  if (player.onGround && Math.abs(player.vx) > 2.5 && Math.random() < 0.45) {
+    createParticle(player.x + 8 + Math.random()*18, player.y + player.height - 1, player.facing * -1.8 - (Math.random()-0.5), 0.6, 5, '#ddd', 2);
+  }
+  // Magnet aura particles
+  if (powerupType === 'magnet' && Math.random() < 0.7) {
+    createParticle(player.x + 17 + (Math.random()-0.5)*36, player.y + 12 + Math.random()*22, (Math.random()-0.5)*0.8, -0.8, 7, '#a78bfa', 2);
   }
 }
 
@@ -849,6 +923,22 @@ function draw() {
     ctx.lineWidth = 7;
   });
 
+  // Extra foreground procedural props per world for depth & beauty
+  ctx.globalAlpha = 0.9;
+  if (currentLevel === 0) { // bushes flowers in hills
+    ctx.fillStyle = '#15803d';
+    for (let i=0; i<4; i++) {
+      const fx = 420 + i * 520; ctx.fillRect(fx, 368, 28, 14); ctx.fillStyle='#4ade80'; ctx.fillRect(fx+6, 360, 4, 8);
+    }
+  } else if (currentLevel === 1) {
+    ctx.fillStyle = '#78350f'; // desert pillars
+    for (let i=0; i<3; i++) { const dx=680+i*680; ctx.fillRect(dx, 280, 16, 115); }
+  } else if (currentLevel === 2) {
+    ctx.fillStyle = '#164e63'; ctx.globalAlpha=0.65;
+    for (let i=0; i<5; i++) { const bx = 310 + i*490; ctx.beginPath(); ctx.ellipse(bx, 410, 22, 8, 0, 0, Math.PI*2); ctx.fill(); } // bubbles base
+  }
+  ctx.globalAlpha = 1;
+
   // Collectibles - star rings
   const ringImg = images.starRing;
   const secretImg = images.secretRing;
@@ -890,9 +980,14 @@ function draw() {
     }
   });
 
-  // Boss
+  // Boss - enhanced gorgeous visuals with phase effects
   if (boss && boss.alive) {
     const bImg = images.bossImg;
+    ctx.save();
+    if (boss.phase > 0) {
+      ctx.shadowColor = '#c026ff';
+      ctx.shadowBlur = 8 + boss.phase * 3;
+    }
     if (bImg && bImg.complete) {
       ctx.drawImage(bImg, boss.x, boss.y, boss.w, boss.h);
     } else {
@@ -901,11 +996,22 @@ function draw() {
       ctx.fillStyle = '#f0abfc';
       ctx.fillRect(boss.x + 18, boss.y + 15, 48, 22);
     }
+    ctx.restore();
+    // pulsing aura in higher phases
+    if (boss.phase >= 1) {
+      ctx.globalAlpha = 0.3 + Math.sin(boss.timer * 0.1) * 0.15;
+      ctx.fillStyle = '#c026ff';
+      ctx.fillRect(boss.x - 6, boss.y - 4, boss.w + 12, boss.h + 8);
+      ctx.globalAlpha = 1;
+    }
     // hp bar
     ctx.fillStyle = '#111';
     ctx.fillRect(boss.x + 4, boss.y - 14, boss.w - 8, 8);
     ctx.fillStyle = '#c026ff';
     ctx.fillRect(boss.x + 5, boss.y - 13, (boss.w - 10) * (boss.hp / 4), 6);
+    if (boss.phase === 2) {
+      ctx.fillStyle = '#fff'; ctx.fillRect(boss.x + 5, boss.y - 13, (boss.w - 10) * (boss.hp / 4) * 0.3, 2);
+    }
   }
 
   // Goal / finish
@@ -914,7 +1020,7 @@ function draw() {
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 6; i++) ctx.fillRect(goalX - 6, 186 + i * 32, 14, 14);
 
-  // Player using spritesheet or fallback - Joshway hero
+  // Player using spritesheet or fallback - Joshway hero + procedural cape polish & effects
   let pImg = images.playerSheet;
   let useOld = false;
   if (!pImg || !pImg.complete) {
@@ -950,6 +1056,30 @@ function draw() {
     }
   }
   ctx.restore();
+
+  // Procedural cape trail / glow when gliding or powered - stunning
+  if (!player.onGround && (powerupType === 'flight' || (Math.abs(player.vy) < 2 && player.vy > 0) || powerupType === 'magnet')) {
+    ctx.save();
+    ctx.translate(player.x + 17, player.y + 28);
+    if (player.facing < 0) ctx.scale(-1, 1);
+    ctx.globalAlpha = 0.6 + Math.sin(Date.now()/180) * 0.25;
+    ctx.fillStyle = powerupType === 'flight' ? '#bae6fd' : powerupType === 'magnet' ? '#c4b5fd' : '#f87171';
+    ctx.beginPath();
+    ctx.moveTo(-6, 0);
+    ctx.quadraticCurveTo(-14, 18, -3, 26);
+    ctx.lineTo(5, 26);
+    ctx.quadraticCurveTo(16, 16, 6, 0);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (player.spin && Math.abs(player.vx) > 5) {
+    // spin dash ring aura
+    ctx.strokeStyle = 'rgba(250,204,21,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x + 17, player.y + 22, 26 + Math.sin(player.animTimer*0.5)*2, 0, Math.PI*2);
+    ctx.stroke();
+  }
 
   // Particles in world space
   particles.forEach(p => {
@@ -1008,17 +1138,36 @@ function initControls() {
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-  // Touch support basic
+  // Touch support - polished responsive: left/right zones + center jump + swipe down spin
+  let touchStartX = 0, touchStartY=0;
   canvas.addEventListener('touchstart', (e) => {
+    if (gameState !== 'playing') {
+      // allow tapping overlays? but main handled
+      return;
+    }
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    const tx = touchStartX;
+    const rect = canvas.getBoundingClientRect();
+    const relX = tx - rect.left;
+    if (relX < 220) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
+    else if (relX > 580) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
+    else { keys['Space'] = true; }
+    e.preventDefault();
+  });
+  canvas.addEventListener('touchmove', (e) => {
     if (gameState !== 'playing') return;
     const tx = e.touches[0].clientX;
-    if (tx < 200) keys['ArrowLeft'] = true;
-    else if (tx > 600) keys['ArrowRight'] = true;
-    else keys['Space'] = true;
+    const ty = e.touches[0].clientY;
+    const rect = canvas.getBoundingClientRect();
+    const relX = tx - rect.left;
+    if (relX < 220) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
+    else if (relX > 580) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
+    if (ty - touchStartY > 35) { keys['ArrowDown'] = true; keys['Space'] = false; } // swipe down spin
     e.preventDefault();
   });
   canvas.addEventListener('touchend', () => {
-    keys['ArrowLeft'] = keys['ArrowRight'] = keys['Space'] = false;
+    keys['ArrowLeft'] = keys['ArrowRight'] = keys['Space'] = keys['ArrowDown'] = false;
   });
 }
 
