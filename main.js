@@ -35,6 +35,7 @@ let powerUps = [];
 let enemies = [];
 let loops = [];
 let particles = [];
+let hazards = [];
 let boss = null;
 let goalX = 2400;
 
@@ -259,7 +260,19 @@ function resetLevel(lvlIdx) {
   enemies = [];
   loops = JSON.parse(JSON.stringify(L.loops || []));
   particles = [];
+  hazards = [];
   boss = null;
+
+  // Add procedural themed hazards per world (spikes, quicksand pits, etc) - non-lethal enemies are the walking ones
+  if (currentLevel === 0) { // green hills spikes
+    hazards.push({x:650,y:365,w:38,h:18,type:'spike'},{x:1320,y:295,w:28,h:16,type:'spike'},{x:2090,y:165,w:30,h:16,type:'spike'});
+  } else if (currentLevel === 1) { // desert - sand pits (slow/hurt)
+    hazards.push({x:780,y:375,w:70,h:20,type:'quicksand'},{x:1680,y:375,w:55,h:20,type:'quicksand'});
+  } else if (currentLevel === 2) { // aqua
+    hazards.push({x:920,y:370,w:42,h:18,type:'spike'},{x:1810,y:180,w:36,h:14,type:'spike'});
+  } else if (currentLevel === 3) { // cosmic energy orbs
+    hazards.push({x:980,y:280,w:32,h:16,type:'energy'},{x:1750,y:230,w:44,h:14,type:'energy'});
+  }
 
   // Spawn normal rings
   L.rings.forEach(([rx, ry]) => collectibles.push({x: rx, y: ry, r: 13, collected: false, isSecret: false}));
@@ -342,11 +355,17 @@ function updatePhysics() {
   const grav = (powerupType === 'flight') ? 0.12 : 0.68;
   const friction = player.onGround ? 0.90 : 0.975;
 
-  // gravity + flight assist
+  // gravity + flight assist + cape glide
   player.vy += grav;
+  const isGlide = (keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && !player.onGround && player.vy > 0.5;
   if (powerupType === 'flight' && (keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
     player.vy = Math.max(player.vy, -6.5);
     if (Math.random() < 0.4) createParticle(player.x + 18, player.y + 36, (Math.random()-0.5)*1, 1.6, 8, '#bae6fd');
+  } else if (isGlide) {
+    // Joshway cape glide for gorgeous control
+    player.vy *= 0.92;
+    player.vy = Math.min(player.vy, 3.2);
+    if (Math.random() < 0.6) createParticle(player.x + 10 + player.facing*4, player.y + 8, player.facing * -0.8, 1.2, 11, '#f87171', 2);
   }
 
   player.x += player.vx;
@@ -394,6 +413,30 @@ function handleCollisions() {
       }
     }
   }
+
+  // Hazards (spikes lose rings, quicksand slow, energy zap)
+  hazards.forEach(h => {
+    if (player.x + player.width > h.x && player.x < h.x + h.w &&
+        player.y + player.height > h.y && player.y < h.y + h.h) {
+      if (h.type === 'quicksand') {
+        player.vx *= 0.6;
+        player.vy *= 0.7;
+        if (Math.random() < 0.2) createParticle(player.x + 17, player.y + player.height - 2, (Math.random()-0.5)*1, 0.5, 4, '#854d0e', 3);
+      } else {
+        // spike or energy hazard - hurt if not spinning fast
+        if (!(player.spin && Math.abs(player.vx) > 4)) {
+          if (rings > 0) {
+            const lost = Math.min(2, rings);
+            rings -= lost;
+            spawnRingBurst(player.x + 16, player.y + 12, lost);
+          } else {
+            player.vy = -6; player.vx = -player.facing * 3;
+          }
+          playSFX(210, 0.1, 'sawtooth', 0.25);
+        }
+      }
+    }
+  });
 
   // Bounds
   if (player.x < 8) { player.x = 8; player.vx = Math.max(player.vx, 0.8); }
