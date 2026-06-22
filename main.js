@@ -761,6 +761,31 @@ function draw() {
       ctx.fillStyle = '#a16207'; ctx.fillRect(p.x + p.w - 26, p.y + 3, 14, 7);
     }
   });
+
+  // Draw hazards - gorgeous themed visuals
+  hazards.forEach(h => {
+    if (h.type === 'spike') {
+      ctx.fillStyle = currentLevel === 0 ? '#166534' : '#334155';
+      ctx.beginPath();
+      ctx.moveTo(h.x, h.y + h.h);
+      ctx.lineTo(h.x + h.w/2, h.y);
+      ctx.lineTo(h.x + h.w, h.y + h.h);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f87171'; ctx.fillRect(h.x+3, h.y+h.h-4, h.w-6, 3);
+    } else if (h.type === 'quicksand') {
+      ctx.fillStyle = '#713f12';
+      ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.fillStyle = '#854d0e';
+      ctx.fillRect(h.x+4, h.y+4, h.w-8, 6);
+      for (let i=0; i<3; i++) ctx.fillRect(h.x + 8 + i*18, h.y + 8, 12, 4);
+    } else if (h.type === 'energy') {
+      ctx.fillStyle = '#581c87';
+      ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.strokeStyle = '#c026ff'; ctx.lineWidth = 2;
+      ctx.strokeRect(h.x+2, h.y+2, h.w-4, h.h-4);
+      ctx.lineWidth = 1;
+    }
+  });
   ctx.fillStyle = platCols[currentLevel];
 
   // Draw loops (gorgeous ring visuals)
