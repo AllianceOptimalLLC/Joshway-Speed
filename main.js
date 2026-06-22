@@ -724,7 +724,7 @@ function draw() {
   ctx.fillStyle = skyColors[currentLevel] || '#112';
   ctx.fillRect(cameraX, 0, 800, 450);
 
-  // Background image parallax
+  // Background image parallax + extra gorgeous procedural layers
   let bgKey = ['bgGreen','bgDesert','bgWater','bgCosmic'][currentLevel];
   const bg = images[bgKey];
   if (bg && bg.complete) {
@@ -733,6 +733,30 @@ function draw() {
     ctx.drawImage(bg, px % 800 , 0, 800, 450);
     ctx.drawImage(bg, px % 800 + 800, 0, 800, 450);
   }
+
+  // Extra procedural far parallax details (clouds, dunes, stars, etc) - stunning visuals
+  const farX = cameraX * 0.12;
+  ctx.globalAlpha = 0.55;
+  if (currentLevel === 0) { // green hills clouds & hills
+    ctx.fillStyle = '#4ade80';
+    for (let i=0; i<5; i++) {
+      const cx = ((farX + i*320) % 1600) - 200; ctx.beginPath(); ctx.ellipse(cx+80, 80 + (i%2)*30, 90, 38, 0, 0, Math.PI*2); ctx.fill();
+    }
+  } else if (currentLevel === 1) { // desert dunes far
+    ctx.fillStyle = '#c2410f';
+    for (let i=0;i<4;i++) { const dx = ((farX + i*420) % 1700)-150; ctx.beginPath(); ctx.moveTo(dx,190); ctx.quadraticCurveTo(dx+110,110,dx+220,190); ctx.fill(); }
+  } else if (currentLevel === 2) { // aqua mist
+    ctx.fillStyle = '#67e8f9';
+    for (let i=0;i<6;i++) { const ax = ((farX + i*260)%1400)-100; ctx.fillRect(ax, 70 + Math.sin(i)*15, 140, 35); }
+  } else if (currentLevel === 3) { // cosmic nebulae/stars
+    ctx.fillStyle = '#c084fc';
+    for (let i=0; i<18; i++) {
+      const sx = ((farX * 1.2 + i*97) % 900) + (i%3)*40; const sy = 40 + (i*23 % 140);
+      ctx.fillRect(sx % (worldWidth*0.7), sy, 2, 2);
+      if (i%4===0) ctx.fillRect(sx% (worldWidth*0.7)+1, sy+3,1,1);
+    }
+  }
+  ctx.globalAlpha = 1;
 
   // Mid layer parallax
   let layerKey = ['layerGreen','layerDesert','layerWater','layerCosmic'][currentLevel];
@@ -745,6 +769,27 @@ function draw() {
     ctx.drawImage(layer, lx % 800 + 800, 12, 800, 410);
     ctx.globalAlpha = 1;
   }
+
+  // Additional mid procedural elements for depth - living world feel
+  const midX = cameraX * 0.65;
+  ctx.globalAlpha = 0.75;
+  if (currentLevel === 0) {
+    ctx.fillStyle = '#22c55e'; // trees/grass tufts
+    for (let i=0; i<7; i++) {
+      const tx = ((midX + i*310) % 2200) ; ctx.fillRect(tx, 320, 8, 60); ctx.fillRect(tx-6, 340, 22, 14);
+    }
+  } else if (currentLevel === 1) {
+    ctx.fillStyle = '#a16207'; // desert rocks
+    for (let i=0;i<5;i++) { const rx=((midX+i*380)%2500); ctx.beginPath(); ctx.arc(rx+18, 350, 17, 0, Math.PI*2); ctx.fill(); }
+  } else if (currentLevel === 2) {
+    ctx.fillStyle = '#0e7490'; ctx.globalAlpha=0.5; // water reeds
+    for (let i=0;i<8;i++) { const wx = ((midX + i*270)%2600); ctx.fillRect(wx, 310, 3, 70); }
+    ctx.globalAlpha = 0.75;
+  } else if (currentLevel === 3) {
+    ctx.fillStyle = '#e0f2fe';
+    for (let i=0;i<12;i++) { const px=((midX*0.8 + i*170)%2900); ctx.fillRect(px, 60+(i%5)*25, 1, 1+ (i%3)); }
+  }
+  ctx.globalAlpha = 1;
 
   // Draw platforms themed + props
   const platCols = ['#166534', '#854d0e', '#164e63', '#581c87'];
