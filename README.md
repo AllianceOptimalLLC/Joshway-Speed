@@ -11,7 +11,7 @@ Run, jump, collect star rings, explore beautiful parallax worlds, power-up and f
 ## Features
 - 4+ stunning hand-crafted worlds (playground realms, backyard, moon, starfields)
 - Smooth momentum physics, loops, speed boosts
-- Collect rings for score + bonuses
+- Collect rings for score + bonuses (ring combo multiplier for quick collects)
 - Power-ups: speed, cape flight/glide, magnet
 - Epic boss encounter
 - Chiptune music per level + SFX

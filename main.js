@@ -1,5 +1,6 @@
-// Joshway Speed - Full Production Sonic-like Side Scroller
+// Joshway Speed - Full Production High-Speed Cape-Hero Side Scroller
 // Gorgeous worlds, star rings, loops, power-ups, bosses, polish
+// 5 epic levels incl. Volcanic Core finale, enhanced combos, richer HUD & stats
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: true });
@@ -10,6 +11,11 @@ let gameState = 'title'; // title, playing, complete, over
 let rings = 0;
 let score = 0;
 let time = 0;
+let ringCombo = 0;
+let lastRingTime = 0;
+let maxRingCombo = 0;
+let maxSpeed = 0;
+let damageTaken = 0;
 let currentLevel = 0;
 let worldWidth = 2600;
 let cameraX = 0;
@@ -47,8 +53,8 @@ let powerupTimer = 0;
 const levelData = [
   {
     name: "GREEN HILLS",
-    bg: '/assets/green-hills-bg.jpg',
-    layer: '/assets/sidescroller-layer2.jpg',
+    bg: import.meta.env.BASE_URL+'assets/green-hills-bg.jpg',
+    layer: import.meta.env.BASE_URL+'assets/sidescroller-layer2.jpg',
     ringColor: '#facc15',
     worldWidth: 2400,
     goalX: 2250,
@@ -61,7 +67,7 @@ const levelData = [
       {x:1750,y:290,w:140,h:18}, {x:2000,y:180,w:110,h:18}
     ],
     rings: [[160,240],[230,170],[320,290],[410,140],[510,250],[640,200],[820,100],[920,280],[1080,220],[1220,140],[1380,290],[1560,180],[1720,240],[1880,110],[2050,280],[105,95],[680,85],[1420,95],[1990,105]],
-    secrets: [[420,80],[1150,60],[1920,70]],
+    secrets: [[420,80],[1150,60],[1920,70],[680,55],[2050,40]],
     enemies: [{x:380,y:355,vx:1.8},{x:720,y:355,vx:-1.6},{x:1220,y:355,vx:1.4},{x:1700,y:355,vx:1.7},{x:1980,y:355,vx:-1.5}],
     powerups: [{x:740,y:220,type:'speed'},{x:1520,y:170,type:'flight'},{x:1980,y:120,type:'magnet'}],
     loops: [{x:1550,y:310,r:58}],
@@ -69,8 +75,8 @@ const levelData = [
   },
   {
     name: "DESERT DUNES",
-    bg: '/assets/desert-bg.jpg',
-    layer: '/assets/desert-layer.png',
+    bg: import.meta.env.BASE_URL+'assets/desert-bg.jpg',
+    layer: import.meta.env.BASE_URL+'assets/desert-layer.png',
     ringColor: '#fb923c',
     worldWidth: 2700,
     goalX: 2550,
@@ -83,7 +89,7 @@ const levelData = [
       {x:1620,y:295,w:125,h:16}, {x:1860,y:160,w:100,h:16}, {x:2100,y:260,w:90,h:16}
     ],
     rings: [[130,260],[220,175],[310,320],[450,145],[580,235],[710,175],[850,95],[970,300],[1120,185],[1270,265],[1450,125],[1600,215],[1780,305],[1950,145],[2150,235],[2300,180]],
-    secrets: [[560,95],[1420,105],[2110,85]],
+    secrets: [[560,95],[1420,105],[2110,85],[380,60],[980,75],[2350,50]],
     enemies: [{x:290,y:368,vx:2.1},{x:580,y:368,vx:-1.9},{x:1020,y:368,vx:1.6},{x:1530,y:368,vx:-1.8},{x:2040,y:368,vx:2.0}],
     powerups: [{x:620,y:240,type:'speed'},{x:1750,y:195,type:'flight'},{x:980,y:110,type:'magnet'}],
     loops: [{x:950,y:320,r:52},{x:1720,y:290,r:48}],
@@ -91,8 +97,8 @@ const levelData = [
   },
   {
     name: "AQUA RUINS",
-    bg: '/assets/water-bg.jpg',
-    layer: '/assets/water-layer.png',
+    bg: import.meta.env.BASE_URL+'assets/water-bg.jpg',
+    layer: import.meta.env.BASE_URL+'assets/water-layer.png',
     ringColor: '#67e8f9',
     worldWidth: 2800,
     goalX: 2650,
@@ -105,7 +111,7 @@ const levelData = [
       {x:1530,y:305,w:115,h:15}, {x:1750,y:200,w:80,h:15}, {x:1980,y:275,w:130,h:15}, {x:2200,y:155,w:90,h:15}
     ],
     rings: [[140,235],[205,145],[295,310],[380,105],[520,205],[650,265],[780,125],[910,275],[1060,165],[1190,300],[1350,195],[1520,115],[1670,285],[1840,170],[2000,250],[2180,135],[2340,295]],
-    secrets: [[290,70],[1040,90],[1990,65]],
+    secrets: [[290,70],[1040,90],[1990,65],[610,55],[1320,80],[2250,45]],
     enemies: [{x:340,y:363,vx:1.5},{x:620,y:363,vx:-2.2},{x:990,y:363,vx:1.3},{x:1380,y:363,vx:-1.8},{x:1890,y:363,vx:2.3},{x:2270,y:363,vx:-1.6}],
     powerups: [{x:580,y:180,type:'flight'},{x:1680,y:235,type:'speed'},{x:820,y:95,type:'magnet'}],
     loops: [{x:1120,y:300,r:55}],
@@ -113,8 +119,8 @@ const levelData = [
   },
   {
     name: "COSMIC REALM",
-    bg: '/assets/cosmic-bg.jpg',
-    layer: '/assets/cosmic-layer.png',
+    bg: import.meta.env.BASE_URL+'assets/cosmic-bg.jpg',
+    layer: import.meta.env.BASE_URL+'assets/cosmic-layer.png',
     ringColor: '#c084fc',
     worldWidth: 3100,
     goalX: 2850,
@@ -128,33 +134,58 @@ const levelData = [
       {x:1920,y:255,w:125,h:14}, {x:2160,y:195,w:100,h:14}, {x:2410,y:285,w:95,h:14}
     ],
     rings: [[120,225],[185,120],[280,305],[390,155],[500,225],[610,290],[750,95],[880,255],[1020,165],[1170,295],[1310,135],[1480,245],[1620,85],[1770,310],[1930,175],[2100,255],[2260,130],[2440,290],[2600,200],[520,80],[1450,65],[1980,110],[2720,150]],
-    secrets: [[470,60],[1290,55],[2200,75],[710,40],[2550,50]],
+    secrets: [[470,60],[1290,55],[2200,75],[710,40],[2550,50],[320,85],[1880,40]],
     enemies: [{x:260,y:374,vx:2.3},{x:490,y:374,vx:-2.0},{x:860,y:374,vx:1.7},{x:1140,y:374,vx:-2.5},{x:1510,y:374,vx:1.9},{x:2030,y:374,vx:-1.8},{x:2440,y:374,vx:2.1}],
     powerups: [{x:660,y:145,type:'speed'},{x:1580,y:105,type:'flight'},{x:2350,y:220,type:'speed'},{x:1020,y:100,type:'magnet'}],
     loops: [{x:860,y:310,r:60},{x:1600,y:260,r:50}],
+    hasBoss: true
+  },
+  {
+    name: "VOLCANIC CORE",
+    bg: import.meta.env.BASE_URL+'assets/volcanic-procedural-bg.jpg',
+    layer: import.meta.env.BASE_URL+'assets/volcanic-layer.png',
+    ringColor: '#fb923c',
+    worldWidth: 2950,
+    goalX: 2750,
+    platforms: [
+      {x:0,y:385,w:320,h:65}, {x:380,y:385,w:420,h:65}, {x:850,y:385,w:380,h:65},
+      {x:1280,y:385,w:510,h:65}, {x:1850,y:385,w:450,h:65}, {x:2380,y:385,w:570,h:65},
+      {x:140,y:290,w:90,h:16}, {x:290,y:210,w:105,h:16},
+      {x:480,y:265,w:85,h:16}, {x:650,y:150,w:95,h:16},
+      {x:870,y:280,w:125,h:16}, {x:1050,y:175,w:80,h:16},
+      {x:1250,y:310,w:110,h:16}, {x:1450,y:235,w:95,h:16},
+      {x:1700,y:155,w:130,h:16}, {x:1950,y:285,w:85,h:16},
+      {x:2200,y:200,w:105,h:16}, {x:2450,y:140,w:70,h:16}
+    ],
+    rings: [[110,210],[185,135],[270,290],[355,95],[480,225],[590,305],[680,120],[810,175],[920,255],[1050,80],[1160,310],[1280,195],[1400,265],[1550,115],[1680,290],[1820,160],[1950,240],[2120,85],[2250,175],[2410,295],[2550,210],[2680,130],[450,70],[980,55],[1620,45],[2310,60],[270,40]],
+    secrets: [[320,55],[760,95],[1180,70],[1670,35],[2140,80],[2520,50],[450,120],[1400,30]],
+    enemies: [{x:220,y:368,vx:2.4},{x:520,y:368,vx:-2.1},{x:920,y:368,vx:1.8},{x:1350,y:368,vx:-2.3},{x:1780,y:368,vx:2.0},{x:2150,y:368,vx:-1.9},{x:2520,y:368,vx:1.6}],
+    powerups: [{x:540,y:130,type:'speed'},{x:1480,y:100,type:'flight'},{x:980,y:210,type:'magnet'},{x:2070,y:160,type:'speed'},{x:1200,y:80,type:'starburst'}],
+    loops: [{x:790,y:290,r:52},{x:1380,y:270,r:48},{x:2040,y:250,r:55}],
     hasBoss: true
   }
 ];
 
 let images = {};
 function loadImages() {
+  // Only the real JPEG backgrounds + parallax layers are loaded. Every former
+  // "sprite" PNG was actually an opaque full-frame JPEG (no alpha), so loading
+  // them rendered ugly gray/colored placeholder boxes. Those sprites are now
+  // drawn procedurally with canvas shapes (see draw()), so we intentionally do
+  // NOT load: starRing, secretRing, playerSheet, playerOld, enemy, bossImg,
+  // powerImg, ui. Their image entries stay undefined -> img.complete is false
+  // -> the procedural fallback branches always run.
   const toLoad = {
-    bgGreen: '/assets/green-hills-procedural-bg.jpg',
-    bgDesert: '/assets/desert-procedural-bg.jpg',
-    bgWater: '/assets/aqua-procedural-bg.jpg',
-    bgCosmic: '/assets/cosmic-procedural-bg.jpg',
-    layerGreen: '/assets/sidescroller-layer2.jpg',
-    layerDesert: '/assets/desert-layer.png',
-    layerWater: '/assets/water-layer.png',
-    layerCosmic: '/assets/cosmic-layer.png',
-    starRing: '/assets/star-ring.png',
-    secretRing: '/assets/secret-ring.png',
-    playerSheet: '/assets/joshway-spritesheet.png',
-    playerOld: '/assets/joshway-running.png',
-    enemy: '/assets/enemy-sheet.png',
-    bossImg: '/assets/boss-sprite.png',
-    powerImg: '/assets/powerups.png',
-    ui: '/assets/ui-elements.png'
+    bgGreen: import.meta.env.BASE_URL+'assets/green-hills-procedural-bg.jpg',
+    bgDesert: import.meta.env.BASE_URL+'assets/desert-procedural-bg.jpg',
+    bgWater: import.meta.env.BASE_URL+'assets/aqua-procedural-bg.jpg',
+    bgCosmic: import.meta.env.BASE_URL+'assets/cosmic-procedural-bg.jpg',
+    bgVolcanic: import.meta.env.BASE_URL+'assets/volcanic-procedural-bg.jpg',
+    layerGreen: import.meta.env.BASE_URL+'assets/sidescroller-layer2.jpg',
+    layerDesert: import.meta.env.BASE_URL+'assets/desert-layer.png',
+    layerWater: import.meta.env.BASE_URL+'assets/water-layer.png',
+    layerCosmic: import.meta.env.BASE_URL+'assets/cosmic-layer.png',
+    layerVolcanic: import.meta.env.BASE_URL+'assets/volcanic-layer.png'
   };
   Object.keys(toLoad).forEach(k => {
     const img = new Image();
@@ -214,9 +245,11 @@ function startMusicForLevel(lvl) {
       // AQUA RUINS: flowing aquatic
       { lead: [784, 880, 988, 1046, 1175, 1046, 880, 784], bass: [392, 440, 523], tempo: 98, vol: 0.08 },
       // COSMIC REALM: epic spacey
-      { lead: [440, 523, 659, 880, 1046, 880, 659, 523], bass: [220, 262, 330, 392], tempo: 135, vol: 0.1 }
+      { lead: [440, 523, 659, 880, 1046, 880, 659, 523], bass: [220, 262, 330, 392], tempo: 135, vol: 0.1 },
+      // VOLCANIC CORE: intense fiery rock
+      { lead: [494, 587, 659, 740, 659, 587, 494, 740], bass: [247, 294, 370, 440], tempo: 118, vol: 0.11 }
     ];
-    const th = levelThemes[lvl % 4];
+    const th = levelThemes[lvl % levelThemes.length];
     const leadNote = th.lead[musicNote % th.lead.length];
     const bassNote = th.bass[musicBeat % th.bass.length];
 
@@ -286,6 +319,11 @@ function resetLevel(lvlIdx) {
   secretsFound = 0;
   powerupType = null;
   powerupTimer = 0;
+  ringCombo = 0;
+  lastRingTime = 0;
+  maxRingCombo = 0;
+  maxSpeed = 0;
+  damageTaken = 0;
 
   platforms = JSON.parse(JSON.stringify(L.platforms));
   collectibles = [];
@@ -305,6 +343,9 @@ function resetLevel(lvlIdx) {
     hazards.push({x:920,y:370,w:42,h:18,type:'spike'},{x:1810,y:180,w:36,h:14,type:'spike'});
   } else if (currentLevel === 3) { // cosmic energy orbs
     hazards.push({x:980,y:280,w:32,h:16,type:'energy'},{x:1750,y:230,w:44,h:14,type:'energy'});
+  } else if (currentLevel === 4) { // volcanic: lava pits & spikes
+    hazards.push({x:680,y:370,w:85,h:18,type:'lava'},{x:1320,y:370,w:70,h:18,type:'lava'},{x:2050,y:370,w:90,h:18,type:'lava'});
+    hazards.push({x:920,y:295,w:32,h:14,type:'spike'},{x:1880,y:255,w:28,h:14,type:'spike'});
   }
 
   // Spawn normal rings
@@ -330,6 +371,10 @@ function resetLevel(lvlIdx) {
   document.getElementById('score').textContent = String(score).padStart(6, '0');
   document.getElementById('time').textContent = '00';
   document.getElementById('levelName').textContent = L.name;
+  const comboInit = document.getElementById('combo');
+  if (comboInit) comboInit.textContent = 'x1';
+  const spdInit = document.getElementById('speed');
+  if (spdInit) spdInit.textContent = '03';
 
   powerHud.style.display = 'none';
 
@@ -458,12 +503,27 @@ function handleCollisions() {
         player.vx *= 0.6;
         player.vy *= 0.7;
         if (Math.random() < 0.2) createParticle(player.x + 17, player.y + player.height - 2, (Math.random()-0.5)*1, 0.5, 4, '#854d0e', 3);
+      } else if (h.type === 'lava') {
+        player.vx *= 0.55;
+        player.vy *= 0.65;
+        if (Math.random() < 0.35) createParticle(player.x + 17, player.y + player.height - 3, (Math.random()-0.5)*1.5, 0.3, 5, '#f97316', 4);
+        // lava hurts more
+        if (!(player.spin && Math.abs(player.vx) > 5) && Math.random() < 0.6) {
+          if (rings > 0) {
+            const lost = Math.min(2, rings);
+            rings -= lost;
+            damageTaken++;
+            spawnRingBurst(player.x + 16, player.y + 12, lost, '#fb923c');
+          }
+          playSFX(160, 0.08, 'sawtooth', 0.28);
+        }
       } else {
         // spike or energy hazard - hurt if not spinning fast
         if (!(player.spin && Math.abs(player.vx) > 4)) {
           if (rings > 0) {
             const lost = Math.min(2, rings);
             rings -= lost;
+            damageTaken++;
             spawnRingBurst(player.x + 16, player.y + 12, lost);
           } else {
             player.vy = -6; player.vx = -player.facing * 3;
@@ -487,6 +547,7 @@ function handleCollisions() {
     player.vy = -7;
     if (rings > 0) {
       rings = Math.max(0, rings - 3);
+      damageTaken++;
       spawnRingBurst(player.x + 12, player.y + 10, 5);
       playSFX(260, 0.3, 'sawtooth', 0.3);
     } else {
@@ -525,16 +586,37 @@ function handleCollectibles() {
       c.collected = true;
       rings++;
       collectedThisLevel++;
+      const now = Date.now();
+      if (now - lastRingTime < 1200) {
+        ringCombo++;
+      } else {
+        ringCombo = 1;
+      }
+      lastRingTime = now;
+      if (ringCombo > maxRingCombo) maxRingCombo = ringCombo;
       let pts = c.isSecret ? 450 : 120;
       if (powerupType === 'magnet') pts = Math.floor(pts * 1.35);
-      score += pts;
+      if (powerupType === 'starburst') { pts = Math.floor(pts * 2.2); ringCombo = Math.min(8, ringCombo + 2); } // starburst doubles and boosts combo
+      const comboMult = Math.min(5, Math.max(1, ringCombo)); // increased max mult to 5
+      let speedBonus = 1;
+      const curSpd = Math.abs(player.vx);
+      if (curSpd > 10) speedBonus = 1.5; else if (curSpd > 7) speedBonus = 1.25;
+      if (!player.onGround) pts += 30; // air collect bonus
+      if (player.spin) pts += 25; // spin collect extra
+      score += Math.floor(pts * comboMult * speedBonus);
       if (c.isSecret) secretsFound++;
       const pitch = (c.isSecret ? 1480 : 1180) + (rings % 8) * 55; // nice ascending combo pitch
       playSFX(pitch, 0.13, 'sine', c.isSecret ? 0.7 : 0.52);
       spawnRingBurst(c.x, c.y, c.isSecret ? 11 : 6, c.isSecret ? '#fde047' : L.ringColor);
       if (rings % 5 === 0) {
-        score += 80;
+        score += 120;
         playSFX(1720, 0.1, 'sine', 0.4);
+      }
+      // New perfect ring streak bonus every 8
+      if (ringCombo % 8 === 0 && ringCombo > 0) {
+        score += 300;
+        playSFX(2100, 0.12, 'sine', 0.5);
+        spawnRingBurst(player.x + 17, player.y + 10, 4, '#fff');
       }
     }
   });
@@ -561,12 +643,12 @@ function handleCollectibles() {
     if (Math.hypot(player.x + 17 - pu.x, player.y + 22 - pu.y) < 28) {
       pu.collected = true;
       powerupType = pu.type;
-      powerupTimer = (pu.type === 'speed' ? 420 : pu.type === 'magnet' ? 520 : 360);
+      powerupTimer = (pu.type === 'speed' ? 420 : pu.type === 'magnet' ? 520 : pu.type === 'starburst' ? 300 : 360);
       playSFX(920, 0.22, 'sine', 0.6);
-      const col = pu.type === 'speed' ? '#f87171' : pu.type === 'magnet' ? '#a78bfa' : '#bae6fd';
+      const col = pu.type === 'speed' ? '#f87171' : pu.type === 'magnet' ? '#a78bfa' : pu.type === 'starburst' ? '#fde047' : '#bae6fd';
       spawnRingBurst(pu.x, pu.y, 9, col);
       powerHud.style.display = 'block';
-      powerHud.textContent = (pu.type === 'speed' ? '⚡ SPEED BOOST' : pu.type === 'magnet' ? '🧲 RING MAGNET' : '✈️ FLIGHT / CAPE');
+      powerHud.textContent = (pu.type === 'speed' ? '⚡ SPEED BOOST' : pu.type === 'magnet' ? '🧲 RING MAGNET' : pu.type === 'starburst' ? '★ STARBURST COMBO' : '✈️ FLIGHT / CAPE');
     }
   });
 }
@@ -593,6 +675,7 @@ function handleEnemiesAndBoss() {
         if (rings > 0) {
           const lost = Math.min(3, rings);
           rings -= lost;
+          damageTaken++;
           spawnRingBurst(player.x + 16, player.y + 18, lost + 1);
         }
         player.vx = player.facing * -6;
@@ -654,7 +737,7 @@ function handleEnemiesAndBoss() {
         }
       } else {
         // hit by boss
-        if (rings > 0) { rings = Math.max(0, rings - 4); spawnRingBurst(player.x+16, player.y+18, 6); }
+        if (rings > 0) { rings = Math.max(0, rings - 4); damageTaken++; spawnRingBurst(player.x+16, player.y+18, 6); }
         player.vx = -player.facing * 8.5;
         player.vy = -5.5;
         playSFX(190, 0.35, 'sawtooth', 0.4);
@@ -698,23 +781,40 @@ function checkWinCondition() {
     const totalRingsInLevel = L.rings.length + L.secrets.length;
     const ringBonus = rings * 140;
     let perfectBonus = 0;
-    if (collectedThisLevel >= totalRingsInLevel - 1) {
-      perfectBonus = 1800;
+    if (collectedThisLevel >= totalRingsInLevel) {
+      perfectBonus = 2800; // stricter full perfect
+      bonus += perfectBonus;
+    } else if (collectedThisLevel >= totalRingsInLevel - 1) {
+      perfectBonus = 1400;
       bonus += perfectBonus;
     }
-    score += bonus + ringBonus;
+    const comboBonus = Math.max(0, (maxRingCombo - 1) * 55);
+    let noDamageBonus = (damageTaken === 0 && rings > 0) ? 1650 : 0;
+    if (noDamageBonus) bonus += noDamageBonus;
+    let speedBonus = Math.floor(Math.max(0, (maxSpeed - 8) * 95));
+    score += bonus + ringBonus + comboBonus + speedBonus;
 
     gameState = 'complete';
     stopMusic();
 
     // show overlay
     document.getElementById('completeOverlay').classList.add('active');
+    const totalRings = L.rings.length + L.secrets.length;
+    const ringPct = Math.floor((collectedThisLevel / Math.max(1,totalRings)) * 100);
+    const spdStat = Math.floor(maxSpeed);
+    const comboStat = maxRingCombo;
+    const dmgStat = damageTaken;
     document.getElementById('completeStats').innerHTML =
-      `RINGS: ${rings} &nbsp;|&nbsp; SECRETS: ${secretsFound} &nbsp;|&nbsp; TIME: ${Math.floor(time)}s &nbsp;|&nbsp; BONUS: ${bonus}`;
+      `RINGS: ${rings}/${totalRings} (${ringPct}%) &nbsp;|&nbsp; SECRETS: ${secretsFound} &nbsp;|&nbsp; TIME: ${Math.floor(time)}s<br>` +
+      `MAX COMBO: x${comboStat} &nbsp;|&nbsp; MAX SPD: ${spdStat} &nbsp;|&nbsp; DAMAGE: ${dmgStat} &nbsp;|&nbsp; BONUS: ${bonus}<br>` +
+      `RING BONUS: ${ringBonus} &nbsp;|&nbsp; COMBO BONUS: ${comboBonus} &nbsp;|&nbsp; SPD BONUS: ${speedBonus} &nbsp;|&nbsp; NO-DMG: ${noDamageBonus || 0}`;
     const msgEl = document.getElementById('completeMsg');
-    let extra = perfectBonus > 0 ? ' ★ PERFECT CLEAR! ★' : '';
-    if (currentLevel === 3) {
-      msgEl.innerHTML = '★ ALL WORLDS CLEARED! YOU ARE A LEGEND! ★' + extra;
+    let extra = '';
+    if (collectedThisLevel >= totalRings && damageTaken === 0) extra = ' ★ PERFECT NO-DAMAGE CLEAR! ★';
+    else if (collectedThisLevel >= totalRings) extra = ' ★ PERFECT CLEAR! ★';
+    else if (damageTaken === 0) extra = ' ★ FLAWLESS RUN! ★';
+    if (currentLevel === 4) {
+      msgEl.innerHTML = '★ ALL WORLDS CLEARED! VOLCANIC CORE CONQUERED! YOU ARE A LEGEND! ★' + extra;
       saveHighScore(score);
     } else {
       msgEl.innerHTML = `WORLD CLEARED! Next: ${levelData[currentLevel + 1].name}` + extra;
@@ -731,7 +831,7 @@ function triggerDeath() {
   stopMusic();
   gameState = 'over';
   document.getElementById('gameOverOverlay').classList.add('active');
-  document.getElementById('finalScore').innerHTML = `FINAL SCORE: ${score}<br>RINGS: ${rings}`;
+  document.getElementById('finalScore').innerHTML = `FINAL SCORE: ${score}<br>RINGS: ${rings} &nbsp; COMBO: x${maxRingCombo} &nbsp; MAX SPD: ${Math.floor(maxSpeed)}<br>DAMAGE TAKEN: ${damageTaken}`;
   saveHighScore(score);
 }
 
@@ -776,12 +876,19 @@ function update() {
   ringEl.textContent = String(rings).padStart(3,'0');
   document.getElementById('score').textContent = String(Math.floor(score)).padStart(6,'0');
   document.getElementById('time').textContent = String(Math.floor(time)).padStart(2,'0');
+  // enhanced HUD: combo and speed
+  const comboEl = document.getElementById('combo');
+  if (comboEl) comboEl.textContent = `x${Math.max(1, ringCombo || 0)}`;
+  const spdEl = document.getElementById('speed');
+  if (spdEl) spdEl.textContent = String(Math.floor(Math.abs(player.vx))).padStart(2,'0');
 
   // Win?
   checkWinCondition();
 
   // Speed boost effect particles + dust trail polish
-  if (Math.abs(player.vx) > 9 && player.onGround && Math.random() < 0.6) {
+  const curSpeed = Math.abs(player.vx);
+  if (curSpeed > maxSpeed) maxSpeed = curSpeed;
+  if (curSpeed > 9 && player.onGround && Math.random() < 0.6) {
     createParticle(player.x + (player.facing>0 ? 4 : 28), player.y + 38, player.facing * -1.6, 1.3, 6, '#fef08c', 2);
   }
   if (player.onGround && Math.abs(player.vx) > 2.5 && Math.random() < 0.45) {
@@ -796,7 +903,138 @@ function update() {
     if (currentLevel === 2) createParticle(50 + Math.random()*(worldWidth-100), 80 + Math.random()*140, (Math.random()-0.5)*0.6, 0.8, 18, '#67e8f9', 2);
     else if (currentLevel === 3) createParticle(30 + Math.random()*(worldWidth-60), 20 + Math.random()*160, (Math.random()-0.5)*0.4, 0.1, 32, '#c084fc', 1);
     else if (currentLevel === 0 && Math.random()<0.5) createParticle(80 + Math.random()*(worldWidth-160), 140 + Math.random()*80, -0.3, 0.3, 26, '#86efac', 2);
+    else if (currentLevel === 4) createParticle(60 + Math.random()*(worldWidth-120), 50 + Math.random()*80, (Math.random()-0.5)*0.3, 0.6, 14, '#f97316', 2); // embers
   }
+}
+
+// Fully procedural caped hero. Original design: round friendly head, dark hair
+// tuft, bright shirt with yellow star, shorts, sneakers and a billowing cape.
+// ~40px tall, faces movement direction with a simple two-pose running cycle.
+function drawJoshway() {
+  const moving = player.onGround && Math.abs(player.vx) > 1.2;
+  const legPhase = moving ? (player.frame % 4) : 0; // 0..3 cycle
+  const spinning = player.spin && Math.abs(player.vx) > 4;
+  const t = Date.now();
+
+  ctx.save();
+  // anchor at player's horizontal center, near its feet baseline
+  ctx.translate(player.x + player.width/2, player.y + player.height);
+  if (player.facing < 0) ctx.scale(-1, 1);
+
+  if (spinning) {
+    // spin-dash: a glowing tucked ball so it reads clearly during dash
+    const r = 16;
+    const g = ctx.createRadialGradient(0, -16, 4, 0, -16, r);
+    g.addColorStop(0, '#fde68a');
+    g.addColorStop(0.5, '#3b82f6');
+    g.addColorStop(1, '#1e3a8a');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, -16, r, 0, Math.PI*2); ctx.fill();
+    // motion arcs
+    ctx.strokeStyle = 'rgba(250,204,21,0.85)'; ctx.lineWidth = 2.5;
+    for (let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.arc(0, -16, r-2, (t/40 + i*2.1)%(Math.PI*2), (t/40 + i*2.1)%(Math.PI*2)+1.1);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+
+  // billowing cape behind body (red), animated flutter
+  const flutter = Math.sin(t/140) * 3;
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.moveTo(-4, -34);
+  ctx.quadraticCurveTo(-22 - flutter, -24, -18 - flutter, -6 + flutter);
+  ctx.quadraticCurveTo(-12, -14, -2, -10);
+  ctx.closePath();
+  ctx.fill();
+  // cape inner shade
+  ctx.fillStyle = '#b91c1c';
+  ctx.beginPath();
+  ctx.moveTo(-4, -32);
+  ctx.quadraticCurveTo(-15 - flutter, -22, -13 - flutter, -10 + flutter);
+  ctx.quadraticCurveTo(-9, -16, -3, -12);
+  ctx.closePath();
+  ctx.fill();
+
+  // legs / sneakers (two running poses)
+  const swing = legPhase === 1 ? 5 : legPhase === 3 ? -5 : 0;
+  ctx.fillStyle = '#1f2937'; // shorts/legs dark
+  // back leg
+  ctx.fillRect(-7 - swing*0.4, -12, 5, 10);
+  // front leg
+  ctx.fillRect(2 + swing*0.4, -12, 5, 10);
+  // sneakers (red with white sole)
+  ctx.fillStyle = '#ef4444';
+  ctx.fillRect(-9 - swing*0.4, -4, 8, 4);
+  ctx.fillRect(1 + swing*0.4, -4, 8, 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(-9 - swing*0.4, -1, 8, 2);
+  ctx.fillRect(1 + swing*0.4, -1, 8, 2);
+
+  // body / bright blue shirt
+  ctx.fillStyle = '#2563eb';
+  ctx.beginPath();
+  ctx.moveTo(-8, -26);
+  ctx.lineTo(8, -26);
+  ctx.lineTo(7, -12);
+  ctx.lineTo(-7, -12);
+  ctx.closePath();
+  ctx.fill();
+  // yellow star on chest
+  ctx.fillStyle = '#facc15';
+  drawStar(0, -19, 5, 2.2, 5, t/2000);
+
+  // arms (skin) - one forward in run
+  ctx.fillStyle = '#e8b07a';
+  ctx.fillRect(5 + swing*0.3, -24, 4, 8);   // front arm
+  ctx.fillRect(-9 - swing*0.3, -24, 4, 8);  // back arm
+  // gloves
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(5 + swing*0.3, -17, 4, 3);
+  ctx.fillRect(-9 - swing*0.3, -17, 4, 3);
+
+  // head
+  ctx.fillStyle = '#e8b07a';
+  ctx.beginPath(); ctx.arc(0, -32, 7.5, 0, Math.PI*2); ctx.fill();
+  // hair tuft (dark, swept) - not a hedgehog silhouette, just a side fringe
+  ctx.fillStyle = '#3b1d0e';
+  ctx.beginPath();
+  ctx.moveTo(-7, -34);
+  ctx.quadraticCurveTo(-2, -43, 7, -37);
+  ctx.quadraticCurveTo(2, -39, -1, -37);
+  ctx.quadraticCurveTo(-4, -38, -7, -34);
+  ctx.closePath();
+  ctx.fill();
+  // goggles strap on forehead
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(-7, -37, 14, 2.5);
+  ctx.fillStyle = '#67e8f9';
+  ctx.beginPath(); ctx.arc(3.5, -36, 1.6, 0, Math.PI*2); ctx.fill();
+  // eyes + smile
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(2, -31, 1.2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-3, -31, 1.2, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, -29, 2.2, 0.15, Math.PI - 0.15); ctx.stroke();
+
+  ctx.restore();
+}
+
+// helper: filled star centered at (cx,cy) with current fillStyle
+function drawStar(cx, cy, outer, inner, points, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / (points * 2)) * Math.PI * 2 - Math.PI/2 + rot;
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
 
 function draw() {
@@ -805,12 +1043,12 @@ function draw() {
   ctx.translate(-Math.floor(cameraX), 0);
 
   // Sky / base fill per theme - tuned for gorgeous new parallax bgs
-  const skyColors = ['#1e3a8a', '#451a03', '#164e63', '#312e81'];
+  const skyColors = ['#1e3a8a', '#451a03', '#164e63', '#312e81', '#431407'];
   ctx.fillStyle = skyColors[currentLevel] || '#112';
   ctx.fillRect(cameraX, 0, 800, 450);
 
   // Background image parallax + extra gorgeous procedural layers
-  let bgKey = ['bgGreen','bgDesert','bgWater','bgCosmic'][currentLevel];
+  let bgKey = ['bgGreen','bgDesert','bgWater','bgCosmic','bgVolcanic'][currentLevel];
   const bg = images[bgKey];
   if (bg && bg.complete) {
     const px = cameraX * 0.22;
@@ -840,11 +1078,18 @@ function draw() {
       ctx.fillRect(sx % (worldWidth*0.7), sy, 2, 2);
       if (i%4===0) ctx.fillRect(sx% (worldWidth*0.7)+1, sy+3,1,1);
     }
+  } else if (currentLevel === 4) { // volcanic far lava flows & ash
+    ctx.fillStyle = '#c2410f';
+    for (let i=0; i<5; i++) {
+      const vx = ((farX + i*380) % 1800) - 120; ctx.beginPath(); ctx.moveTo(vx, 210); ctx.quadraticCurveTo(vx+95, 130, vx+210, 205); ctx.fill();
+    }
+    ctx.fillStyle = '#facc15';
+    for (let i=0;i<9;i++) { const ax=((farX*1.3 + i*120)%2100); ctx.fillRect(ax, 55 + (i%3)*18, 3, 2); }
   }
   ctx.globalAlpha = 1;
 
   // Mid layer parallax
-  let layerKey = ['layerGreen','layerDesert','layerWater','layerCosmic'][currentLevel];
+  let layerKey = ['layerGreen','layerDesert','layerWater','layerCosmic','layerVolcanic'][currentLevel];
   const layer = images[layerKey];
   if (layer && layer.complete) {
     const lx = cameraX * 0.48;
@@ -873,11 +1118,14 @@ function draw() {
   } else if (currentLevel === 3) {
     ctx.fillStyle = '#e0f2fe';
     for (let i=0;i<12;i++) { const px=((midX*0.8 + i*170)%2900); ctx.fillRect(px, 60+(i%5)*25, 1, 1+ (i%3)); }
+  } else if (currentLevel === 4) {
+    ctx.fillStyle = '#854d0e';
+    for (let i=0;i<6;i++) { const rx=((midX + i*410)%2800); ctx.fillRect(rx, 335, 18, 12); ctx.fillRect(rx+4, 320, 8, 15); }
   }
   ctx.globalAlpha = 1;
 
   // Draw platforms themed + props
-  const platCols = ['#166534', '#854d0e', '#164e63', '#581c87'];
+  const platCols = ['#166534', '#854d0e', '#164e63', '#581c87', '#9a3412'];
   ctx.fillStyle = platCols[currentLevel];
   platforms.forEach(p => {
     ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -889,6 +1137,8 @@ function draw() {
       ctx.fillStyle = '#4ade80'; ctx.fillRect(p.x + 22, p.y - 3, 7, 5);
     } else if (currentLevel === 1) { // desert rocks
       ctx.fillStyle = '#a16207'; ctx.fillRect(p.x + p.w - 26, p.y + 3, 14, 7);
+    } else if (currentLevel === 4) { // lava glow lines
+      ctx.fillStyle = '#f97316'; ctx.fillRect(p.x + 14, p.y + 2, p.w - 28, 2);
     }
   });
 
@@ -914,6 +1164,13 @@ function draw() {
       ctx.strokeStyle = '#c026ff'; ctx.lineWidth = 2;
       ctx.strokeRect(h.x+2, h.y+2, h.w-4, h.h-4);
       ctx.lineWidth = 1;
+    } else if (h.type === 'lava') {
+      ctx.fillStyle = '#9a3412';
+      ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(h.x+3, h.y+3, h.w-6, 4);
+      ctx.fillStyle = '#fed7aa';
+      for (let i=0; i<3; i++) ctx.fillRect(h.x + 6 + i*22, h.y + 5 + (i%2), 8, 3);
     }
   });
   ctx.fillStyle = platCols[currentLevel];
@@ -947,68 +1204,172 @@ function draw() {
   } else if (currentLevel === 2) {
     ctx.fillStyle = '#164e63'; ctx.globalAlpha=0.65;
     for (let i=0; i<5; i++) { const bx = 310 + i*490; ctx.beginPath(); ctx.ellipse(bx, 410, 22, 8, 0, 0, Math.PI*2); ctx.fill(); } // bubbles base
+  } else if (currentLevel === 4) {
+    ctx.fillStyle = '#7f1d1d'; // volcanic rocks
+    for (let i=0; i<4; i++) { const rx=480 + i*620; ctx.fillRect(rx, 355, 38, 22); }
   }
   ctx.globalAlpha = 1;
 
-  // Collectibles - star rings
-  const ringImg = images.starRing;
-  const secretImg = images.secretRing;
+  // Collectibles - star rings (procedural golden torus with shine + bob)
   collectibles.forEach(c => {
-    if (!c.collected) {
-      const img = c.isSecret && secretImg && secretImg.complete ? secretImg : ringImg;
-      if (img && img.complete) {
-        const bob = Math.sin(Date.now()/160 + c.x) * 2.5;
-        ctx.drawImage(img, c.x - c.r, c.y - c.r + bob, c.r*2, c.r*2);
-      } else {
-        ctx.fillStyle = c.isSecret ? '#fde047' : L.ringColor;
-        ctx.beginPath(); ctx.arc(c.x, c.y + Math.sin(Date.now()/170)*2, c.r, 0, Math.PI*2); ctx.fill();
-      }
-    }
+    if (c.collected) return;
+    const bob = Math.sin(Date.now()/220 + c.x*0.05) * 2.5;
+    const cy = c.y + bob;
+    const r = c.r;
+    ctx.save();
+    ctx.translate(c.x, cy);
+    // soft glow halo
+    const glow = ctx.createRadialGradient(0, 0, r*0.4, 0, 0, r*1.7);
+    if (c.isSecret) { glow.addColorStop(0, 'rgba(103,232,249,0.55)'); glow.addColorStop(1, 'rgba(103,232,249,0)'); }
+    else { glow.addColorStop(0, 'rgba(250,204,21,0.45)'); glow.addColorStop(1, 'rgba(250,204,21,0)'); }
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0, 0, r*1.7, 0, Math.PI*2); ctx.fill();
+    // ring body (outer ring color)
+    ctx.lineWidth = r*0.5;
+    ctx.strokeStyle = c.isSecret ? '#22d3ee' : '#facc15';
+    ctx.beginPath(); ctx.arc(0, 0, r*0.75, 0, Math.PI*2); ctx.stroke();
+    // inner highlight ring
+    ctx.lineWidth = r*0.2;
+    ctx.strokeStyle = c.isSecret ? '#cffafe' : '#fde68a';
+    ctx.beginPath(); ctx.arc(0, 0, r*0.75, -Math.PI*0.75, Math.PI*0.15); ctx.stroke();
+    // shine dot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(-r*0.45, -r*0.45, r*0.18, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
   });
 
-  // Power-up orbs
+  // Power-up orbs (procedural glowing orb + pulsing ring + icon letter)
   powerUps.forEach(pu => {
     if (pu.collected) return;
-    const puImg = images.powerImg;
-    if (puImg && puImg.complete && pu.type !== 'magnet') {
-      const sx = pu.type === 'speed' ? 0 : 48;
-      ctx.drawImage(puImg, sx, 0, 46, 46, pu.x - 22, pu.y - 22, 44, 44);
-    } else {
-      ctx.fillStyle = pu.type === 'speed' ? '#ef4444' : (pu.type === 'magnet' ? '#7c3aed' : '#38bdf8');
-      ctx.fillRect(pu.x - 14, pu.y - 14, 28, 28);
-      if (pu.type === 'magnet') {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(pu.x, pu.y, 9, 0, Math.PI*2); ctx.stroke(); ctx.lineWidth=1;
-      }
-    }
+    const cfg = {
+      speed:     { col: '#ef4444', lite: '#fecaca', letter: 'S' },
+      magnet:    { col: '#a855f7', lite: '#e9d5ff', letter: 'M' },
+      flight:    { col: '#38bdf8', lite: '#bae6fd', letter: 'C' },
+      starburst: { col: '#fde047', lite: '#fef9c3', letter: '★' }
+    }[pu.type] || { col: '#38bdf8', lite: '#bae6fd', letter: '?' };
+    const pulse = 1 + Math.sin(Date.now()/200 + pu.x*0.03) * 0.12;
+    const R = 16;
+    ctx.save();
+    ctx.translate(pu.x, pu.y);
+    // outer pulsing ring
+    ctx.strokeStyle = cfg.col;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(0, 0, R * 1.35 * pulse, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    // orb body gradient
+    const g = ctx.createRadialGradient(-R*0.3, -R*0.3, R*0.2, 0, 0, R);
+    g.addColorStop(0, cfg.lite);
+    g.addColorStop(0.6, cfg.col);
+    g.addColorStop(1, cfg.col);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI*2); ctx.fill();
+    // glossy highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(-R*0.35, -R*0.4, R*0.32, R*0.2, -0.5, 0, Math.PI*2); ctx.fill();
+    // icon letter
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cfg.letter, 0, 1);
+    ctx.restore();
   });
 
-  // Enemies
-  const enImg = images.enemy;
+  // Enemies - procedural spiky-shelled critter (original creature, menacing)
   enemies.forEach(e => {
     if (!e.alive) return;
-    if (enImg && enImg.complete) {
-      ctx.drawImage(enImg, e.x, e.y, e.w, e.h);
-    } else {
-      ctx.fillStyle = '#b91c1c';
-      ctx.fillRect(e.x, e.y, e.w, e.h);
+    const cx = e.x + e.w/2;
+    const cy = e.y + e.h/2;
+    const r = e.w/2;
+    const dir = e.vx >= 0 ? 1 : -1;
+    ctx.save();
+    ctx.translate(cx, cy);
+    // spikes around shell
+    ctx.fillStyle = '#7f1d1d';
+    const spikes = 8;
+    for (let i = 0; i < spikes; i++) {
+      const a = (i / spikes) * Math.PI * 2 + Date.now()/900;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.lineTo(Math.cos(a) * (r + 6), Math.sin(a) * (r + 6));
+      ctx.lineTo(Math.cos(a + 0.28) * r, Math.sin(a + 0.28) * r);
+      ctx.closePath(); ctx.fill();
     }
+    // shell body gradient
+    const g = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.2, 0, 0, r);
+    g.addColorStop(0, '#f87171');
+    g.addColorStop(1, '#991b1b');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
+    // dark belly band
+    ctx.fillStyle = '#450a0a';
+    ctx.fillRect(-r, r*0.35, r*2, r*0.5);
+    // angry eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(dir*-r*0.25, -r*0.15, r*0.32, 0, Math.PI*2);
+    ctx.arc(dir*r*0.45, -r*0.15, r*0.32, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(dir*-r*0.18, -r*0.1, r*0.15, 0, Math.PI*2);
+    ctx.arc(dir*r*0.5, -r*0.1, r*0.15, 0, Math.PI*2); ctx.fill();
+    // angry brow
+    ctx.strokeStyle = '#450a0a'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(dir*-r*0.55, -r*0.5); ctx.lineTo(dir*r*0.7, -r*0.25);
+    ctx.stroke();
+    ctx.restore();
   });
 
   // Boss - enhanced gorgeous visuals with phase effects
   if (boss && boss.alive) {
-    const bImg = images.bossImg;
     ctx.save();
     if (boss.phase > 0) {
       ctx.shadowColor = '#c026ff';
       ctx.shadowBlur = 8 + boss.phase * 3;
     }
-    if (bImg && bImg.complete) {
-      ctx.drawImage(bImg, boss.x, boss.y, boss.w, boss.h);
-    } else {
-      ctx.fillStyle = '#6b21a8';
-      ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
-      ctx.fillStyle = '#f0abfc';
-      ctx.fillRect(boss.x + 18, boss.y + 15, 48, 22);
+    // Procedural menacing boss: floating armored eye-core with spiked crown
+    {
+      const cx = boss.x + boss.w/2;
+      const cy = boss.y + boss.h/2;
+      const hover = Math.sin(boss.timer * 0.08) * 3;
+      ctx.translate(cx, cy + hover);
+      // outer hull (dome)
+      const g = ctx.createRadialGradient(-12, -16, 8, 0, 0, boss.w*0.6);
+      g.addColorStop(0, '#a855f7');
+      g.addColorStop(0.6, '#6b21a8');
+      g.addColorStop(1, '#3b0764');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, boss.w*0.5, boss.h*0.48, 0, 0, Math.PI*2);
+      ctx.fill();
+      // spiked crown
+      ctx.fillStyle = '#4c1d95';
+      const spikes = 7;
+      for (let i = 0; i < spikes; i++) {
+        const t = (i/(spikes-1)) - 0.5;
+        const sx = t * boss.w * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(sx - 6, -boss.h*0.3);
+        ctx.lineTo(sx, -boss.h*0.6);
+        ctx.lineTo(sx + 6, -boss.h*0.3);
+        ctx.closePath(); ctx.fill();
+      }
+      // central glowing eye
+      const eg = ctx.createRadialGradient(0, 2, 2, 0, 2, boss.w*0.28);
+      eg.addColorStop(0, '#ffffff');
+      eg.addColorStop(0.4, boss.phase === 2 ? '#ef4444' : '#e879f9');
+      eg.addColorStop(1, '#7e22ce');
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.ellipse(0, 2, boss.w*0.26, boss.h*0.24, 0, 0, Math.PI*2); ctx.fill();
+      // pupil tracking the player
+      const pdir = (player.x > boss.x) ? 1 : -1;
+      ctx.fillStyle = '#1a0033';
+      ctx.beginPath(); ctx.arc(pdir * boss.w*0.07, 3, boss.w*0.1, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(pdir * boss.w*0.07 - 3, 0, boss.w*0.03, 0, Math.PI*2); ctx.fill();
+      // armor rim
+      ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, boss.w*0.5, boss.h*0.48, 0, 0, Math.PI*2); ctx.stroke();
     }
     ctx.restore();
     // pulsing aura in higher phases
@@ -1039,42 +1400,8 @@ function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(goalX + 12, 182 + Math.sin(Date.now()/180)*4, 8, 8);
 
-  // Player using spritesheet or fallback - Joshway hero + procedural cape polish & effects
-  let pImg = images.playerSheet;
-  let useOld = false;
-  if (!pImg || !pImg.complete) {
-    pImg = images.playerOld;
-    useOld = true;
-  }
-  ctx.save();
-  if (pImg && pImg.complete) {
-    if (useOld) {
-      // original running sheet: 4 horizontal frames ~64px each
-      const frameW = 64;
-      const sx = Math.min(3, player.frame) * frameW;
-      ctx.translate(player.x + 17, player.y + 22);
-      if (player.facing < 0) ctx.scale(-1, 1);
-      ctx.drawImage(pImg, sx, 0, frameW, 48, -17, -24, 34, 48);
-    } else {
-      const frameW = 64;
-      const sx = (player.frame % 4) * frameW;
-      const sy = player.spin ? 32 : (player.onGround ? 0 : 16);
-      ctx.translate(player.x + 17, player.y + 22);
-      if (player.facing < 0) ctx.scale(-1, 1);
-      ctx.drawImage(pImg, sx, sy, frameW, 44, -17, -22, 34, 44);
-    }
-  } else {
-    // fallback cute rect art
-    ctx.fillStyle = '#3b82f6';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    ctx.fillStyle = '#c026ff';
-    ctx.fillRect(player.x + 6, player.y + 3, 22, 7);
-    if (player.spin) {
-      ctx.fillStyle = '#facc15';
-      ctx.fillRect(player.x - 3, player.y + 8, player.width + 8, 5);
-    }
-  }
-  ctx.restore();
+  // Player - fully procedural caped hero "Joshway" (original character, no franchise look)
+  drawJoshway();
 
   // Procedural cape trail / glow when gliding or powered - stunning
   if (!player.onGround && (powerupType === 'flight' || (Math.abs(player.vy) < 2 && player.vy > 0) || powerupType === 'magnet')) {
@@ -1259,7 +1586,7 @@ function nextLevel() {
     // full game win
     gameState = 'over';
     document.getElementById('gameOverOverlay').classList.add('active');
-    document.getElementById('finalScore').innerHTML = `★ VICTORY! FINAL SCORE: ${score} ★<br>ALL STAR RINGS RECOVERED!`;
+    document.getElementById('finalScore').innerHTML = `★ VICTORY! FINAL SCORE: ${score} ★<br>ALL 5 WORLDS + VOLCANIC CORE CLEARED!<br>MAX COMBO x${maxRingCombo} | MAX SPD ${Math.floor(maxSpeed)}`;
     return;
   }
   gameState = 'playing';
@@ -1320,7 +1647,7 @@ function init() {
     if (gameState === 'playing' && Math.abs(player.vx) < 3) player.vx = 8;
   });
 
-  console.log('%c[JOSHWAY SPEED] Full production build ready. Gorgeous Sonic-like experience loaded!', 'color:#facc15');
+  console.log('%c[JOSHWAY SPEED] Full production build ready. Gorgeous high-speed cape-hero adventure loaded!', 'color:#facc15');
 }
 
 init();

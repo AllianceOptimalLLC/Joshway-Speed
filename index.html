@@ -9,8 +9,10 @@
     body { margin: 0; background: #0a1628; color: #fff; font-family: 'Press Start 2P', monospace; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
     #game { border: 6px solid #facc15; image-rendering: pixelated; box-shadow: 0 0 30px #facc15aa, inset 0 0 20px #000; background: #112; }
     .title { font-size: 28px; color: #facc15; text-shadow: 4px 4px 0 #000, -2px -2px 0 #f97316; margin: 4px 0; letter-spacing: 4px; }
-    .hud { font-size: 14px; color: #4ade80; margin: 2px; text-shadow: 2px 2px 0 #000; display: flex; gap: 20px; align-items: center; }
+    .hud { font-size: 13px; color: #4ade80; margin: 2px; text-shadow: 2px 2px 0 #000; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
     .hud span { color: #facc15; }
+    .hud span:nth-child(5) { color: #c084fc; } /* combo */
+    .hud span:nth-child(6) { color: #fb923c; } /* speed */
     .controls { font-size: 10px; margin: 2px 0 8px; opacity: 0.85; text-align: center; line-height: 1.4; }
     .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 100; background: rgba(10,22,40,0.88); }
     .overlay.active { display: flex; }
@@ -34,13 +36,15 @@
     <span>TIME <span id="time">00</span></span> 
     <span>SCORE <span id="score">000000</span></span> 
     <span id="levelName">GREEN HILLS</span>
+    <span>COMBO <span id="combo">x1</span></span>
+    <span>SPD <span id="speed">00</span></span>
   </div>
   <div id="gameContainer" style="position: relative; width: 812px; height: 462px;">
     <canvas id="game" width="800" height="450"></canvas>
     <div class="power-hud" id="powerHud">BOOST / FLIGHT</div>
   </div>
   <div class="controls">
-    ARROWS/WASD: RUN • SPACE/UP: JUMP + CAPE GLIDE • DOWN: SPIN/DASH • TOUCH: ZONES + SWIPE • Collect ★ STAR RINGS • MAGNET • SPEED • FLIGHT across 4 stunning Joshway worlds!
+    ARROWS/WASD: RUN • SPACE/UP: JUMP + CAPE GLIDE • DOWN: SPIN/DASH • TOUCH: ZONES + SWIPE • Collect ★ STAR RINGS + SECRETS • POWERUPS across 5 epic high-speed worlds! Combo &amp; speed multiply score!
   </div>
 
   <!-- TITLE OVERLAY -->
@@ -48,7 +52,7 @@
     <div class="panel">
       <img src="/assets/title-banner.jpg" alt="Joshway Speed" style="width:100%; max-width:580px; border:4px solid #facc15; margin-bottom:12px;">
       <h1>JOSHWAY SPEED</h1>
-      <p style="font-size:11px;">A SONIC-LIKE ADVENTURE • RUN • JUMP • COLLECT STAR RINGS</p>
+      <p style="font-size:11px;">A COURAGEOUS CAPE-HERO ADVENTURE • RUN • JUMP • COLLECT STAR RINGS</p>
       <button class="btn" onclick="startGameFromTitle()">PRESS START</button>
       <div style="margin-top:12px;">
         <button class="btn" onclick="showStory()">STORY</button>
@@ -59,7 +63,8 @@
         <button class="level-btn" onclick="startLevel(0)">GREEN HILLS</button>
         <button class="level-btn" onclick="startLevel(1)">DESERT DUNES</button>
         <button class="level-btn" onclick="startLevel(2)">AQUA RUINS</button>
-        <button class="level-btn" onclick="startLevel(3)">COSMIC (BOSS)</button>
+        <button class="level-btn" onclick="startLevel(3)">COSMIC REALM</button>
+        <button class="level-btn" onclick="startLevel(4)">VOLCANIC CORE ★</button>
       </div>
     </div>
   </div>
@@ -70,9 +75,9 @@
       <h1>THE QUEST BEGINS</h1>
       <div class="story-text">
         <p>In the sparkling realms of Joshway, the Star Rings have been scattered by the Chaos Lord!</p>
-        <p>Young hero Joshway — cape flying, glasses gleaming — must race across 4 gorgeous worlds to recover every ring.</p>
-        <p>Run at blinding speeds, loop through ancient ruins, fly with power-ups, and defeat the boss guardians.</p>
-        <p>The fate of the sparkle is in your hands. Collect them all!</p>
+        <p>Young hero Joshway — cape flying, glasses gleaming — must race across 5 gorgeous worlds to recover every ring.</p>
+        <p>Run at blinding speeds, loop through ancient ruins, fly with power-ups, and defeat the boss guardians in Volcanic Core!</p>
+        <p>The fate of the sparkle is in your hands. Collect them all! More secrets + combo scoring!</p>
       </div>
       <button class="btn" onclick="startGameFromStory()">BEGIN THE JOURNEY</button>
       <button class="btn" onclick="hideStory()" style="background:#444;">BACK</button>
@@ -83,7 +88,7 @@
   <div id="completeOverlay" class="overlay">
     <div class="panel">
       <h1>★ LEVEL COMPLETE! ★</h1>
-      <p id="completeStats">Rings: 00 | Time: 00 | Bonus: 00000</p>
+      <p id="completeStats">Rings: 00 | Time: 00 | Bonus: 00000<br>MAX COMBO: x1 | MAX SPD: 0 | DAMAGE: 0</p>
       <p id="completeMsg"></p>
       <button class="btn" onclick="nextLevel()">NEXT LEVEL →</button>
       <button class="btn" onclick="restartCurrentLevel()">REPLAY LEVEL</button>
