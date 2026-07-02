@@ -7,7 +7,14 @@ const ctx = canvas.getContext('2d', { alpha: true });
 const gameContainer = document.getElementById('gameContainer');
 const powerHud = document.getElementById('powerHud');
 
-let gameState = 'title'; // title, playing, complete, over
+let gameState = 'title'; // title, playing, paused, complete, over
+
+// Mute preference (persisted). Checked at the single playSFX chokepoint,
+// which silences both SFX and the procedural music (music is built on playSFX).
+let isMuted = false;
+try { isMuted = localStorage.getItem('joshwaySpeedMuted') === '1'; } catch(e) {}
+let muteFlashText = '';
+let muteFlashUntil = 0;
 let rings = 0;
 let score = 0;
 let time = 0;
@@ -200,7 +207,7 @@ function initAudio() {
 }
 
 function playSFX(freq, dur, type='square', vol=0.25, ramp=0.08) {
-  if (!audioCtx) return;
+  if (!audioCtx || isMuted) return;
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   const f = audioCtx.createBiquadFilter();
@@ -1451,11 +1458,76 @@ function draw() {
   }
 }
 
+// PAUSE: freezes the world (update() only runs while 'playing'), stops music,
+// and renders a dimmed canvas overlay. Resume restarts the level music.
+function pauseGame() {
+  if (gameState !== 'playing') return;
+  gameState = 'paused';
+  stopMusic();
+}
+
+function resumeGame() {
+  if (gameState !== 'paused') return;
+  gameState = 'playing';
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  startMusicForLevel(currentLevel);
+}
+
+function quitToTitle() {
+  gameState = 'title';
+  stopMusic();
+  document.getElementById('titleOverlay').classList.add('active');
+}
+
+function drawPauseOverlay() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,22,40,0.78)';
+  ctx.fillRect(0, 0, 800, 450);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Big PAUSED title in the game's pixel style (offset black shadow like the HUD)
+  ctx.font = '32px "Press Start 2P", monospace';
+  ctx.fillStyle = '#000';
+  ctx.fillText('PAUSED', 404, 199);
+  ctx.fillStyle = '#facc15';
+  ctx.fillText('PAUSED', 400, 195);
+  // Hint line
+  ctx.font = '12px "Press Start 2P", monospace';
+  ctx.fillStyle = '#000';
+  ctx.fillText('P / Esc: resume · Q: quit to title', 402, 248);
+  ctx.fillStyle = '#a5f3fc';
+  ctx.fillText('P / Esc: resume · Q: quit to title', 400, 246);
+  ctx.restore();
+}
+
+// Brief on-canvas feedback when toggling mute
+function drawMuteFlash() {
+  if (!muteFlashText || Date.now() > muteFlashUntil) return;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '14px "Press Start 2P", monospace';
+  ctx.fillStyle = '#000';
+  ctx.fillText(muteFlashText, 402, 42);
+  ctx.fillStyle = isMuted ? '#f87171' : '#4ade80';
+  ctx.fillText(muteFlashText, 400, 40);
+  ctx.restore();
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  try { localStorage.setItem('joshwaySpeedMuted', isMuted ? '1' : '0'); } catch(e) {}
+  muteFlashText = isMuted ? 'MUTED' : 'SOUND ON';
+  muteFlashUntil = Date.now() + 1300;
+}
+
 function gameLoop() {
   if (gameState === 'playing') {
     update();
   }
   draw();
+  if (gameState === 'paused') drawPauseOverlay();
+  drawMuteFlash();
   requestAnimationFrame(gameLoop);
 }
 
@@ -1469,6 +1541,16 @@ function initControls() {
         resetLevel(currentLevel);
         startMusicForLevel(currentLevel);
       }
+      // Escape or P pauses (no more instant dump to title)
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        pauseGame();
+      }
+    } else if (gameState === 'paused') {
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        resumeGame();
+      } else if (e.code === 'KeyQ') {
+        quitToTitle();
+      }
     }
     if (gameState === 'complete' && (e.code === 'Space' || e.code === 'Enter')) {
       nextLevel();
@@ -1476,10 +1558,9 @@ function initControls() {
     if (gameState === 'over' && e.code === 'Space') {
       restartFromOver();
     }
-    if (e.code === 'Escape' && gameState === 'playing') {
-      gameState = 'title';
-      document.getElementById('titleOverlay').classList.add('active');
-      stopMusic();
+    // Global mute toggle, persisted
+    if (e.code === 'KeyM') {
+      toggleMute();
     }
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
